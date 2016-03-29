@@ -85,7 +85,7 @@ func participate() {
             time.Sleep(waitTime)
             // retry
         }
-    }
+    }()
 }
 
 func run(candidate *leadership.Candidate) {
@@ -95,16 +95,17 @@ func run(candidate *leadership.Candidate) {
     }
     for {
         select {
-            case elected := <-electedCh:
+        case isElected := <-electedCh:
             if isElected {
                 // Do something
             } else {
                 // Do something else
             }
 
-            case err := <-errCh:
-                log.Error(err)
-                return
+        case err := <-errCh:
+            log.Error(err)
+            return
+        }
     }
 }
 ```
