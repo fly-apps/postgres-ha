@@ -25,8 +25,7 @@ func TestCandidate(t *testing.T) {
 	mockLock.On("Unlock").Return(nil)
 
 	candidate := NewCandidate(kv, "test_key", "test_node", 0)
-	electedCh, _, err := candidate.RunForElection()
-	assert.Nil(t, err)
+	electedCh, _ := candidate.RunForElection()
 
 	// Should issue a false upon start, no matter what.
 	assert.False(t, <-electedCh)
