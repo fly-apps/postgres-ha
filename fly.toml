@@ -1,0 +1,34 @@
+# fly.toml file generated for postgres-ha-example on 2020-12-22T12:44:02-06:00
+
+app = "postgres-ha-example"
+
+# stop accepting new connections while existing sessions complete
+kill_signal = "SIGTERM"
+# allow 5 minutes to cleanly shutdown
+kill_timeout = 300
+
+[env]
+PRIMARY_REGION="ord"
+
+[checks.pg]
+type = "script"
+interval = 30000
+timeout = 10000
+command = "flycheck"
+args = ["pg"]
+
+[checks.vm]
+type = "script"
+interval = 30000
+timeout = 10000
+command = "flycheck"
+args = ["vm"]
+
+[experimental]
+private_network=true
+enable_consul=true
+auto_rollback=false
+
+[mount]
+source = "pg_data"
+destination = "/data"
