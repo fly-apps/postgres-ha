@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	libkvmock "github.com/docker/libkv/store/mock"
+	libkvmock "github.com/superfly/libkv/store/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

@@ -3,7 +3,7 @@ package leadership
 import (
 	"errors"
 
-	"github.com/docker/libkv/store"
+	"github.com/superfly/libkv/store"
 )
 
 // Follower can follow an election in real-time and push notifications whenever
