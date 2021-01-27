@@ -78,7 +78,14 @@ type response struct {
 }
 
 func listDatabases(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
-	sql := "SELECT datname FROM pg_database WHERE datistemplate = false"
+	sql := `
+		SELECT d.datname,
+					(SELECT array_agg(u.usename::text order by u.usename) 
+						from pg_user u 
+						where has_database_privilege(u.usename, d.datname, 'CONNECT')) as allowed_users
+		from pg_database d where d.datistemplate = false
+		order by d.datname;
+		`
 
 	rows, err := pg.Query(context.Background(), sql)
 	if err != nil {
@@ -86,19 +93,42 @@ func listDatabases(pg *pgx.Conn, input map[string]interface{}) (interface{}, err
 	}
 	defer rows.Close()
 
-	dbs := []string{}
+	values := []dbInfo{}
 
 	for rows.Next() {
-		var name string
-		rows.Scan(&name)
-		dbs = append(dbs, name)
+		di := dbInfo{}
+		if err := rows.Scan(&di.Name, &di.Users); err != nil {
+			return nil, err
+		}
+		values = append(values, di)
 	}
 
-	return dbs, nil
+	return values, nil
+}
+
+type userInfo struct {
+	Username  string   `json:"username"`
+	SuperUser bool     `json:"superuser"`
+	Databases []string `json:"databases"`
+}
+
+type dbInfo struct {
+	Name  string   `json:"name"`
+	Users []string `json:"users"`
 }
 
 func listUsers(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
-	sql := `SELECT usename FROM pg_catalog.pg_user`
+	sql := `
+		select u.usename,
+			usesuper as superuser,
+      (select array_agg(d.datname::text order by d.datname)
+				from pg_database d
+				WHERE datistemplate = false
+				AND has_database_privilege(u.usename, d.datname, 'CONNECT')
+			) as allowed_databases
+			from pg_user u
+			order by u.usename
+			`
 
 	rows, err := pg.Query(context.Background(), sql)
 	if err != nil {
@@ -106,12 +136,14 @@ func listUsers(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) 
 	}
 	defer rows.Close()
 
-	values := []string{}
+	values := []userInfo{}
 
 	for rows.Next() {
-		var name string
-		rows.Scan(&name)
-		values = append(values, name)
+		ui := userInfo{}
+		if err := rows.Scan(&ui.Username, &ui.SuperUser, &ui.Databases); err != nil {
+			return nil, err
+		}
+		values = append(values, ui)
 	}
 
 	return values, nil
@@ -123,6 +155,10 @@ func createUser(pg *pgx.Conn, input map[string]interface{}) (interface{}, error)
 	_, err := pg.Exec(context.Background(), sql)
 	if err != nil {
 		return false, err
+	}
+
+	if val, ok := input["superuser"]; ok && val == true {
+		return grantSuperuser(pg, input)
 	}
 
 	return true, nil
