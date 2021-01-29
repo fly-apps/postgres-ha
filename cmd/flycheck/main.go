@@ -24,6 +24,9 @@ func main() {
 			passed, failed = CheckPostgreSQL(hostname, passed, failed)
 		case "vm":
 			passed, failed = CheckVM(passed, failed)
+		case "role":
+			PostgreSQLRole(hostname)
+			return
 		}
 	}
 

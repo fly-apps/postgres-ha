@@ -29,21 +29,30 @@ func CheckPostgreSQL(hostname string, passed []string, failed []error) ([]string
 	}
 	defer localConn.Close(context.Background())
 
-	msg, err = leaderAvailable(leaderConn)
-
-	if err != nil {
-		failed = append(failed, err)
-	} else {
-		passed = append(passed, msg)
+	isLeader := leaderConn.PgConn().Conn().RemoteAddr().String() == localConn.PgConn().Conn().RemoteAddr().String()
+	if isLeader {
+		passed = append(passed, "replication: currently leader")
 	}
 
-	msg, err = replicationLag(leaderConn, localConn)
-	if err != nil {
-		if err != pgx.ErrNoRows {
+	if !isLeader {
+		msg, err = leaderAvailable(leaderConn)
+
+		if err != nil {
 			failed = append(failed, err)
+		} else {
+			passed = append(passed, msg)
 		}
-	} else {
-		passed = append(passed, msg)
+	}
+
+	if !isLeader {
+		msg, err = replicationLag(leaderConn, localConn)
+		if err != nil {
+			if err != pgx.ErrNoRows {
+				failed = append(failed, err)
+			}
+		} else {
+			passed = append(passed, msg)
+		}
 	}
 
 	msg, err = connectionCount(localConn)
@@ -56,6 +65,33 @@ func CheckPostgreSQL(hostname string, passed []string, failed []error) ([]string
 	return passed, failed
 }
 
+// PostgreSQLRole outputs current role
+func PostgreSQLRole(hostname string) {
+	leaderConn, err := openLeaderConnection(hostname)
+	if err != nil {
+		fmt.Println("unknown")
+		os.Exit(1)
+		return
+	}
+	defer leaderConn.Close(context.Background())
+
+	localConn, err := openLocalConnection()
+	if err != nil {
+		fmt.Println("offline")
+		os.Exit(1)
+		return
+	}
+	defer localConn.Close(context.Background())
+
+	isLeader := leaderConn.PgConn().Conn().RemoteAddr().String() == localConn.PgConn().Conn().RemoteAddr().String()
+
+	if isLeader {
+		fmt.Println("leader")
+	} else {
+		fmt.Println("replica")
+	}
+}
+
 func leaderAvailable(conn *pgx.Conn) (string, error) {
 	var readonly string
 	err := conn.QueryRow(context.Background(), "SHOW transaction_read_only").Scan(&readonly)
@@ -66,7 +102,7 @@ func leaderAvailable(conn *pgx.Conn) (string, error) {
 	if readonly == "on" {
 		return "", fmt.Errorf("leader check: %v", err)
 	}
-	return fmt.Sprintf("leader check: %s is available", conn.PgConn().Conn().RemoteAddr()), nil
+	return fmt.Sprintf("leader check: %s connected", conn.PgConn().Conn().RemoteAddr()), nil
 }
 
 func replicationLag(leader *pgx.Conn, local *pgx.Conn) (string, error) {

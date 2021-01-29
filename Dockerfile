@@ -8,7 +8,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -v -o flycheck ./cmd/flycheck
 
 FROM flyio/stolon:20210109-5 as stolon
 
-FROM postgres:12
+FROM postgres:12.5
 
 LABEL fly.app_role=postgres_cluster
 

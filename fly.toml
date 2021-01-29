@@ -10,10 +10,18 @@ kill_timeout = 300
 [env]
 PRIMARY_REGION="ord"
 
+[checks.role]
+type = "script"
+interval = 60000
+timeout = 10000
+command = "flycheck"
+args = ["role"]
+
 [checks.pg]
 type = "script"
 interval = 30000
 timeout = 10000
+grace_period = "10s"
 command = "flycheck"
 args = ["pg"]
 
