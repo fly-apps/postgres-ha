@@ -8,35 +8,37 @@ kill_signal = "SIGTERM"
 kill_timeout = 300
 
 [env]
-PRIMARY_REGION="ord"
+PRIMARY_REGION = "ord"
 
 [checks.role]
-type = "script"
+type     = "script"
 interval = 60000
-timeout = 10000
-command = "flycheck"
-args = ["role"]
+timeout  = 10000
+command  = "flycheck"
+args     = [ "role" ]
 
 [checks.pg]
-type = "script"
-interval = 30000
-timeout = 10000
+type         = "script"
+interval     = 30000
+timeout      = 10000
 grace_period = "10s"
-command = "flycheck"
-args = ["pg"]
+command      = "flycheck"
+args         = [ "pg" ]
 
 [checks.vm]
-type = "script"
+type     = "script"
 interval = 30000
-timeout = 10000
-command = "flycheck"
-args = ["vm"]
+timeout  = 10000
+command  = "flycheck"
+args     = [ "vm" ]
 
 [experimental]
-private_network=true
-enable_consul=true
-auto_rollback=false
+private_network = true
+enable_consul   = true
+auto_rollback   = false
+metrics_port    = 9187
+metrics_path    = "/metrics"
 
 [mount]
-source = "pg_data"
+source      = "pg_data"
 destination = "/data"
