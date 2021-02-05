@@ -47,7 +47,7 @@ primary_region="${PRIMARY_REGION}"
 pg_proxy_port="${PG_PROXY_PORT:-5432}"
 pg_port="${PG_PORT:-5433}"
 
-keeper_options="--uid $node_id --data-dir /data/ --pg-su-username=flypgadmin --pg-repl-username=repluser --pg-listen-address=$ip --pg-port $pg_port --log-level warn --metrics-listen-address 0.0.0.0:8080"
+keeper_options="--uid $node_id --data-dir /data/ --pg-su-username=flypgadmin --pg-repl-username=repluser --pg-listen-address=$ip --pg-port $pg_port --log-level warn
 
 if [ "$primary_region" != "" ]; then
     if [ "$primary_region" != "$FLY_REGION" ]; then
