@@ -20,6 +20,8 @@ fi
 
 consul_node="$(echo $FLY_CONSUL_URL | sed -r 's/https:\/\/[^\/]+\///')$node_id"
 
+mkdir -p /data
+
 # because stolon needs entirely different sets of env vars :/
 cat <<EOF > /data/.env
 STOLONCTL_CLUSTER_NAME=$FLY_APP_NAME
@@ -62,6 +64,7 @@ cat << EOF > /fly/Procfile
 keeper: stolon-keeper $keeper_options
 sentinel: stolon-sentinel --initial-cluster-spec /fly/initial-cluster-spec.json
 proxy: stolon-proxy --listen-address=$ip --port=$pg_proxy_port --log-level=warn
+postgres_exporter: DATA_SOURCE_URI=[$ip]:$pg_port/postgres?sslmode=disable DATA_SOURCE_PASS=$SU_PASSWORD DATA_SOURCE_USER=flypgadmin PG_EXPORTER_DISABLE_SETTINGS_METRICS=true postgres_exporter
 EOF
 
 chown -R stolon:stolon /data/
