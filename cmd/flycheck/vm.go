@@ -121,7 +121,7 @@ func checkDisk(dir string) (string, error) {
 	pct := float64(available) / float64(size)
 	msg := fmt.Sprintf("%s (%.1f%%) free space on %s", dataSize(available), pct*100, dir)
 
-	if pct < 0.9 {
+	if pct < 0.1 {
 		return "", errors.New(msg)
 	}
 
