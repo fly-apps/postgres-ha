@@ -22,6 +22,7 @@ COPY --from=stolon /go/src/app/bin/* /usr/local/bin/
 COPY --from=postgres_exporter /postgres_exporter /usr/local/bin/
 ADD /bin/* /usr/local/bin/
 ADD /scripts/* /fly/
+ADD /config/* /fly/
 RUN useradd -ms /bin/bash stolon
 COPY --from=flyutil /go/src/github.com/fly-examples/postgres-ha/fly* /usr/local/bin/
 

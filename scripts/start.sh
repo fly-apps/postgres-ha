@@ -64,7 +64,7 @@ cat << EOF > /fly/Procfile
 keeper: stolon-keeper $keeper_options
 sentinel: stolon-sentinel --initial-cluster-spec /fly/initial-cluster-spec.json
 proxy: stolon-proxy --listen-address=$ip --port=$pg_proxy_port --log-level=warn
-postgres_exporter: DATA_SOURCE_URI=[$ip]:$pg_port/postgres?sslmode=disable DATA_SOURCE_PASS=$SU_PASSWORD DATA_SOURCE_USER=flypgadmin PG_EXPORTER_DISABLE_SETTINGS_METRICS=true postgres_exporter
+postgres_exporter: DATA_SOURCE_URI=[$ip]:$pg_port/postgres?sslmode=disable DATA_SOURCE_PASS=$SU_PASSWORD DATA_SOURCE_USER=flypgadmin PG_EXPORTER_EXCLUDE_DATABASE=template0,template1 PG_EXPORTER_DISABLE_SETTINGS_METRICS=true PG_EXPORTER_AUTO_DISCOVER_DATABASES=true PG_EXPORTER_EXTEND_QUERY_PATH=/fly/queries.yaml postgres_exporter
 EOF
 
 chown -R stolon:stolon /data/
