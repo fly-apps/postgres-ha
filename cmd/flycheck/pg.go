@@ -29,13 +29,20 @@ func CheckPostgreSQL(hostname string, passed []string, failed []error) ([]string
 	}
 	defer localConn.Close(context.Background())
 
+	proxyConn, err := openProxyConnection()
+	if err != nil {
+		err = fmt.Errorf("proxy: %v", err.Error())
+		return passed, append(failed, err)
+	}
+	defer proxyConn.Close(context.Background())
+
 	isLeader := leaderConn.PgConn().Conn().RemoteAddr().String() == localConn.PgConn().Conn().RemoteAddr().String()
 	if isLeader {
 		passed = append(passed, "replication: currently leader")
 	}
 
 	if !isLeader {
-		msg, err = leaderAvailable(leaderConn)
+		msg, err = leaderAvailable(leaderConn, "leader")
 
 		if err != nil {
 			failed = append(failed, err)
@@ -53,6 +60,14 @@ func CheckPostgreSQL(hostname string, passed []string, failed []error) ([]string
 		} else {
 			passed = append(passed, msg)
 		}
+	}
+
+	msg, err = leaderAvailable(proxyConn, "proxy")
+
+	if err != nil {
+		failed = append(failed, err)
+	} else {
+		passed = append(passed, msg)
 	}
 
 	msg, err = connectionCount(localConn)
@@ -92,17 +107,17 @@ func PostgreSQLRole(hostname string) {
 	}
 }
 
-func leaderAvailable(conn *pgx.Conn) (string, error) {
+func leaderAvailable(conn *pgx.Conn, name string) (string, error) {
 	var readonly string
 	err := conn.QueryRow(context.Background(), "SHOW transaction_read_only").Scan(&readonly)
 	if err != nil {
-		return "", fmt.Errorf("leader check: %v", err)
+		return "", fmt.Errorf("%s check: %v", name, err)
 	}
 
 	if readonly == "on" {
-		return "", fmt.Errorf("leader check: %v", err)
+		return "", fmt.Errorf("%s check: %v", name, err)
 	}
-	return fmt.Sprintf("leader check: %s connected", conn.PgConn().Conn().RemoteAddr()), nil
+	return fmt.Sprintf("%s check: %s connected", name, conn.PgConn().Conn().RemoteAddr()), nil
 }
 
 func replicationLag(leader *pgx.Conn, local *pgx.Conn) (string, error) {
@@ -181,6 +196,17 @@ func openLocalConnection() (*pgx.Conn, error) {
 	}
 
 	host = net.JoinHostPort(host, pgPort())
+
+	return openConnection([]string{host}, "any")
+}
+
+func openProxyConnection() (*pgx.Conn, error) {
+	host := os.Getenv("FLY_LOCAL_6PN")
+	if host == "" {
+		host = "fly-local-6pn"
+	}
+
+	host = net.JoinHostPort(host, "5432")
 
 	return openConnection([]string{host}, "any")
 }
