@@ -21,6 +21,7 @@ type Candidate struct {
 	lock      sync.Mutex
 	lockTTL   time.Duration
 	leader    bool
+	stopped   bool
 	stopCh    chan struct{}
 	stopRenew chan struct{}
 	resignCh  chan bool
@@ -30,10 +31,10 @@ type Candidate struct {
 // NewCandidate creates a new Candidate
 func NewCandidate(client store.Store, key, node string, ttl time.Duration) *Candidate {
 	return &Candidate{
-		client: client,
-		key:    key,
-		node:   node,
-
+		client:   client,
+		key:      key,
+		node:     node,
+		stopped:  false,
 		leader:   false,
 		lockTTL:  ttl,
 		resignCh: make(chan bool),
@@ -63,7 +64,10 @@ func (c *Candidate) RunForElection() (<-chan bool, <-chan error) {
 
 // Stop running for election.
 func (c *Candidate) Stop() {
-	close(c.stopCh)
+	if !c.stopped {
+		close(c.stopCh)
+		c.stopped = true
+	}
 }
 
 // Resign forces the candidate to step-down and try again.
