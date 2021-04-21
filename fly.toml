@@ -36,8 +36,10 @@ args     = [ "vm" ]
 private_network = true
 enable_consul   = true
 auto_rollback   = false
-metrics_port    = 9187
-metrics_path    = "/metrics"
+
+[metrics]
+port = 9187
+path = "/metrics"
 
 [mount]
 source      = "pg_data"
