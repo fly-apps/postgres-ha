@@ -35,9 +35,28 @@ sed 's/STOLONCTL_/STKEEPER_/' /data/.env >> /data/.env
 sed 's/STOLONCTL_/STSENTINEL_/' /data/.env >> /data/.env
 sed 's/STOLONCTL_/STPROXY_/' /data/.env >> /data/.env
 
-# write stolon initial cluster spec
-cat <<EOF > /fly/initial-cluster-spec.json
-{"initMode":"new"}
+mem_total="$(grep MemTotal /proc/meminfo | awk '{print $2}')"
+shared_buffers="$(($mem_total/4))kB"
+effective_cache_size="$((3 * $mem_total/4))kB"
+maintenance_work_mem="$(($mem_total/20))kB"
+work_mem="$(($mem_total/64))kB"
+# 16mb per connection in non-shared_buffers memory
+max_connections="$((3*$mem_total/(1024*16)/4))"
+
+# write stolon cluster spec
+cat <<EOF > /fly/cluster-spec.json
+{
+  "initMode": "new",
+  "pgParameters": {
+    "random_page_cost": "1.25",
+    "effective_io_concurrency": "100",
+    "shared_buffers": "$shared_buffers",
+    "effective_cache_size": "$effective_cache_size",
+    "maintenance_work_mem": "$maintenance_work_mem",
+    "work_mem": "$work_mem",
+    "max_connections": "$max_connections"
+  }
+}
 EOF
 
 su_password="${SU_PASSWORD:-supassword}"
@@ -62,9 +81,10 @@ export STKEEPER_PG_REPL_PASSWORD=$repl_password
 # write procfile for hivemind
 cat << EOF > /fly/Procfile
 keeper: stolon-keeper $keeper_options
-sentinel: stolon-sentinel --initial-cluster-spec /fly/initial-cluster-spec.json
+sentinel: stolon-sentinel --initial-cluster-spec /fly/cluster-spec.json
 proxy: stolon-proxy --listen-address=$ip --port=$pg_proxy_port --log-level=warn
 postgres_exporter: DATA_SOURCE_URI=[$ip]:$pg_port/postgres?sslmode=disable DATA_SOURCE_PASS=$SU_PASSWORD DATA_SOURCE_USER=flypgadmin PG_EXPORTER_EXCLUDE_DATABASE=template0,template1 PG_EXPORTER_DISABLE_SETTINGS_METRICS=true PG_EXPORTER_AUTO_DISCOVER_DATABASES=true PG_EXPORTER_EXTEND_QUERY_PATH=/fly/queries.yaml postgres_exporter
+update_config: stolonctl status && stolonctl update --patch -f /fly/cluster-spec.json
 EOF
 
 chown -R stolon:stolon /data/
@@ -73,6 +93,7 @@ rm -f .overmind.sock
 
 export OVERMIND_NO_PORT=1
 export OVERMIND_AUTO_RESTART=sentinel,proxy
+export OVERMIND_CAN_DIE=update_config
 export OVERMIND_STOP_SIGNALS="keeper=TERM"
 export OVERMIND_TIMEOUT=300
 exec gosu stolon overmind start -f /fly/Procfile
