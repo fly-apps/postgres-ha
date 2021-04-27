@@ -5,6 +5,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o flyadmin ./cmd/flyadmin
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o flycheck ./cmd/flycheck
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o flyconfig ./cmd/flyconfig
 
 FROM flyio/stolon:20210401 as stolon
 
