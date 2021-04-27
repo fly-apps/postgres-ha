@@ -33,9 +33,10 @@ func main() {
 	fmt.Println("cluster spec filename", filename)
 	cfg, err := readConfig(filename)
 	if err == nil {
+		fmt.Println("cluster spec already exists, updating")
 		writeJson(os.Stdout, cfg)
-		fmt.Println("cluster spec already exists, skip")
-		return
+		// fmt.Println("cluster spec already exists, skip")
+		// return
 	} else if !os.IsNotExist(err) {
 		log.Fatalln("error loading cluster spec", err)
 	}
