@@ -1,4 +1,4 @@
-FROM golang:1.15 as flyutil
+FROM golang:1.16 as flyutil
 
 WORKDIR /go/src/github.com/fly-examples/postgres-ha
 COPY . .
