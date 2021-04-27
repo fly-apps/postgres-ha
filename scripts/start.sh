@@ -35,40 +35,8 @@ sed 's/STOLONCTL_/STKEEPER_/' /data/.env >> /data/.env
 sed 's/STOLONCTL_/STSENTINEL_/' /data/.env >> /data/.env
 sed 's/STOLONCTL_/STPROXY_/' /data/.env >> /data/.env
 
-mem_total="$(grep MemTotal /proc/meminfo | awk '{print $2}')"
-vcpus=$FLY_VCPU_COUNT
-if [ -z $vcpus ]; then vcpus=$(grep processor /proc/cpuinfo | wc -l); fi
-shared_buffers="$(($mem_total/4))kB"
-effective_cache_size="$((3 * $mem_total/4))kB"
-maintenance_work_mem="$(($mem_total/20))kB"
-work_mem="$(($mem_total/64))kB"
-# set to the number of vcpus
-max_worker_processes=$vcpus
-max_parallel_workers=$vcpus
-# set to half the number of vcpus with a minimum of 1
-max_parallel_workers_per_gather="$(( ($vcpus+2-1)/2 ))"
-max_parallel_maintenance_workers="$(( ($vcpus+2-1)/2 ))"
-
-
 # write stolon cluster spec
-cat <<EOF > /fly/cluster-spec.json
-{
-  "initMode": "new",
-  "pgParameters": {
-    "random_page_cost": "1.1",
-    "effective_io_concurrency": "200",
-    "shared_buffers": "$shared_buffers",
-    "effective_cache_size": "$effective_cache_size",
-    "maintenance_work_mem": "$maintenance_work_mem",
-    "work_mem": "$work_mem",
-    "max_connections": "300",
-    "max_worker_processes": "$max_worker_processes",
-    "max_parallel_workers": "$max_parallel_workers",
-    "max_parallel_workers_per_gather": "$max_parallel_workers_per_gather",
-    "max_parallel_maintenance_workers": "$max_parallel_maintenance_workers"
-  }
-}
-EOF
+flyconfig /fly/cluster-spec.json
 
 su_password="${SU_PASSWORD:-supassword}"
 repl_password="${REPL_PASSWORD:-replpassword}"
