@@ -14,8 +14,9 @@ import (
 )
 
 type config struct {
-	InitMode     string            `json:"initMode"`
-	PGParameters map[string]string `json:"pgParameters"`
+	InitMode             string            `json:"initMode"`
+	PGParameters         map[string]string `json:"pgParameters"`
+	MaxStandbysPerSender int               `json:"maxStandbysPerSender"`
 }
 
 func main() {
@@ -33,9 +34,9 @@ func main() {
 	fmt.Println("cluster spec filename", filename)
 	cfg, err := readConfig(filename)
 	if err == nil {
+		fmt.Println("cluster spec already exists")
 		writeJson(os.Stdout, cfg)
-		fmt.Println("cluster spec already exists, skip")
-		return
+		// return
 	} else if !os.IsNotExist(err) {
 		log.Fatalln("error loading cluster spec", err)
 	}
@@ -51,7 +52,8 @@ func main() {
 	maintenanceWorkMem := max(64, (mem / 20))
 
 	cfg = config{
-		InitMode: "new",
+		InitMode:             "new",
+		MaxStandbysPerSender: 50,
 		PGParameters: map[string]string{
 			"random_page_cost":                "1.1",
 			"effective_io_concurrency":        "200",
