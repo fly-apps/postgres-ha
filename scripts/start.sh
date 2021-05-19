@@ -44,8 +44,9 @@ primary_region="${PRIMARY_REGION}"
 
 pg_proxy_port="${PG_PROXY_PORT:-5432}"
 pg_port="${PG_PORT:-5433}"
+log_level=info
 
-keeper_options="--uid $node_id --data-dir /data/ --pg-su-username=flypgadmin --pg-repl-username=repluser --pg-listen-address=$ip --pg-port $pg_port --log-level warn"
+keeper_options="--uid $node_id --data-dir /data/ --pg-su-username=flypgadmin --pg-repl-username=repluser --pg-listen-address=$ip --pg-port $pg_port --log-level $log_level"
 
 if [ "$primary_region" != "" ]; then
     if [ "$primary_region" != "$FLY_REGION" ]; then
@@ -60,10 +61,10 @@ export STKEEPER_PG_REPL_PASSWORD=$repl_password
 # write procfile for hivemind
 cat << EOF > /fly/Procfile
 keeper: stolon-keeper $keeper_options
-sentinel: stolon-sentinel --initial-cluster-spec /fly/cluster-spec.json
-proxy: stolon-proxy --listen-address=$ip --port=$pg_proxy_port --log-level=warn
+sentinel: stolon-sentinel --initial-cluster-spec /fly/cluster-spec.json --log-level $log_level
+proxy: stolon-proxy --listen-address=$ip --port=$pg_proxy_port --log-level=$log_level
 postgres_exporter: DATA_SOURCE_URI=[$ip]:$pg_port/postgres?sslmode=disable DATA_SOURCE_PASS=$SU_PASSWORD DATA_SOURCE_USER=flypgadmin PG_EXPORTER_EXCLUDE_DATABASE=template0,template1 PG_EXPORTER_DISABLE_SETTINGS_METRICS=true PG_EXPORTER_AUTO_DISCOVER_DATABASES=true PG_EXPORTER_EXTEND_QUERY_PATH=/fly/queries.yaml postgres_exporter
-update_config: stolonctl status && stolonctl update --patch -f /fly/cluster-spec.json
+update_config: stolonctl status && stolonctl update --patch -f /fly/cluster-spec.json --log-level $log_level
 EOF
 
 chown -R stolon:stolon /data/
