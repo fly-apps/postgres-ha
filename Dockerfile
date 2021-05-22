@@ -6,6 +6,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o flyadmin ./cmd/flyadmin
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o flycheck ./cmd/flycheck
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o flyconfig ./cmd/flyconfig
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o flystart ./cmd/start
 
 FROM flyio/stolon:20210401 as stolon
 
@@ -29,4 +30,5 @@ COPY --from=flyutil /go/src/github.com/fly-examples/postgres-ha/fly* /usr/local/
 
 EXPOSE 5432
 
-CMD ["/fly/start.sh"]
+CMD ["flystart"]
+# CMD ["/fly/start.sh"]

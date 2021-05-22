@@ -1,6 +1,6 @@
 # fly.toml file generated for postgres-ha-example on 2020-12-22T12:44:02-06:00
 
-app = "postgres-ha-example"
+app = "md-pg"
 
 # stop accepting new connections while existing sessions complete
 kill_signal = "SIGTERM"
@@ -8,7 +8,7 @@ kill_signal = "SIGTERM"
 kill_timeout = 300
 
 [env]
-PRIMARY_REGION = "ord"
+PRIMARY_REGION = "dfw"
 
 [checks.role]
 type     = "script"
