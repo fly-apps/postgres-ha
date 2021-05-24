@@ -48,7 +48,7 @@ func main() {
 	}
 
 	go func() {
-		for range time.Tick(5 * time.Second) {
+		for range time.Tick(1 * time.Second) {
 			fmt.Println("checking stolon status")
 
 			cd, err := node.GetStolonClusterData()
