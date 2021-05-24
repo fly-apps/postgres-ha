@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -20,11 +21,11 @@ func main() {
 		panic(err)
 	}
 
-	if err := os.MkdirAll("/data", 0700); err != nil {
+	if err := os.MkdirAll(node.DataDir, 0700); err != nil {
 		panic(err)
 	}
 
-	writeStolonctlEnvFile(node, "/data/.env")
+	writeStolonctlEnvFile(node, filepath.Join(node.DataDir, ".env"))
 
 	stolonUser, err := user.Lookup("stolon")
 	if err != nil {
@@ -38,7 +39,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if err := os.Chown("/data", stolonUID, stolonGID); err != nil {
+	if err := os.Chown(node.DataDir, stolonUID, stolonGID); err != nil {
 		panic(err)
 	}
 
@@ -58,7 +59,7 @@ func main() {
 
 	keeperEnv := map[string]string{
 		"STKEEPER_UID":               node.KeeperUID,
-		"STKEEPER_DATA_DIR":          "/data/",
+		"STKEEPER_DATA_DIR":          node.DataDir,
 		"STKEEPER_PG_SU_USERNAME":    node.SUCredentials.Username,
 		"STKEEPER_PG_SU_PASSWORD":    node.SUCredentials.Password,
 		"STKEEPER_PG_REPL_USERNAME":  node.ReplCredentials.Username,
@@ -72,17 +73,15 @@ func main() {
 		"STKEEPER_STORE_NODE":        node.StoreNode,
 	}
 
-	if primaryRegion := os.Getenv("PRIMARY_REGION"); primaryRegion != "" {
-		if primaryRegion != os.Getenv("FLY_REGION") {
-			keeperEnv["STKEEPER_CAN_BE_MASTER"] = "false"
-			keeperEnv["STKEEPER_CAN_BE_SYNCHRONOUS_REPLICA"] = "false"
-		}
+	if !node.IsPrimaryRegion() {
+		keeperEnv["STKEEPER_CAN_BE_MASTER"] = "false"
+		keeperEnv["STKEEPER_CAN_BE_SYNCHRONOUS_REPLICA"] = "false"
 	}
 
 	svisor.AddProcess("keeper", "stolon-keeper", supervisor.WithEnv(keeperEnv))
 
 	sentinelEnv := map[string]string{
-		"STSENTINEL_DATA_DIR":             "/data/",
+		"STSENTINEL_DATA_DIR":             node.DataDir,
 		"STSENTINEL_INITIAL_CLUSTER_SPEC": "/fly/cluster-spec.json",
 		"STSENTINEL_LOG_LEVEL":            "info",
 		"STSENTINEL_CLUSTER_NAME":         node.AppName,

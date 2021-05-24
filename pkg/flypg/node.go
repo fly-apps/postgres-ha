@@ -21,8 +21,11 @@ type Credentials struct {
 }
 
 type Node struct {
-	AppName   string
-	PrivateIP net.IP
+	AppName       string
+	PrivateIP     net.IP
+	Region        string
+	PrimaryRegion string
+	DataDir       string
 
 	SUCredentials       Credentials
 	ReplCredentials     Credentials
@@ -39,9 +42,20 @@ type Node struct {
 
 func NewNode() (*Node, error) {
 	node := &Node{
-		AppName:     "local",
-		PGPort:      5433,
-		PGProxyPort: 5432,
+		AppName:       "local",
+		PGPort:        5433,
+		PGProxyPort:   5432,
+		Region:        "local",
+		PrimaryRegion: "local",
+		DataDir:       "/data",
+	}
+
+	if region := os.Getenv("FLY_REGION"); region != "" {
+		node.Region = region
+	}
+
+	if region := os.Getenv("PRIMARY_REGION"); region != "" {
+		node.PrimaryRegion = region
 	}
 
 	if appName := os.Getenv("FLY_APP_NAME"); appName != "" {
@@ -96,6 +110,10 @@ func NewNode() (*Node, error) {
 	return node, nil
 }
 
+func (n *Node) IsPrimaryRegion() bool {
+	return n.Region == n.PrimaryRegion
+}
+
 func (n *Node) NewLeaderConnection(ctx context.Context) (*pgx.Conn, error) {
 	addrs, err := privnet.AllPeers(ctx, n.AppName)
 	if err != nil {
@@ -133,10 +151,3 @@ func envOrDefault(name, defaultVal string) string {
 	}
 	return defaultVal
 }
-
-// KeeperUID    string
-// PrivateIP    net.IP
-// ClusterName  string
-// StoreBackend string
-// StoreURL     string
-// StoreNode    string
