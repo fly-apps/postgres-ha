@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -12,7 +14,9 @@ import (
 	"time"
 
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
+	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
 	"github.com/fly-examples/postgres-ha/pkg/supervisor"
+	"github.com/jackc/pgx/v4"
 )
 
 func main() {
@@ -53,16 +57,29 @@ func main() {
 			}
 
 			currentKeeper := cd.Keepers[node.KeeperUID]
-			fmt.Printf("found keeper: %#v\n", currentKeeper)
+			// fmt.Printf("found keeper: %#v\n", currentKeeper)
 			currentDB := cd.FindDB(currentKeeper)
-			fmt.Printf("found db: %#v\n", currentDB)
+			// fmt.Printf("found db: %#v\n", currentDB)
 
 			if currentKeeper == nil || currentDB == nil {
 				continue
 			}
 
-			if currentKeeper.Status.Healthy && currentDB.Status.Healthy {
+			if currentKeeper.Status.Healthy && currentDB.Status.Healthy && currentDB.Spec.Role == "master" {
 				fmt.Println("keeper is healthy, db is healthy, role:", currentDB.Spec.Role)
+
+				pg, err := node.NewLocalConnection(context.TODO())
+				if err != nil {
+					fmt.Println("error connecting to local postgres", err)
+					continue
+				}
+
+				if err = initOperator(context.TODO(), pg, node.OperatorCredentials); err != nil {
+					fmt.Println("error configuring operator:", err)
+					continue
+				}
+				fmt.Println("operator ready!")
+				break
 			}
 		}
 	}()
@@ -152,4 +169,54 @@ func writeStolonctlEnvFile(n *flypg.Node, filename string) {
 	b.WriteString("STOLONCTL_STORE_NODE=" + n.StoreNode + "\n")
 
 	os.WriteFile(filename, b.Bytes(), 0644)
+}
+
+func initOperator(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) error {
+	fmt.Println("configuring operator")
+
+	users, err := admin.ListUsers(ctx, pg)
+	if err != nil {
+		return err
+	}
+
+	var operatorUser *admin.UserInfo
+
+	for _, u := range users {
+		if u.Username == creds.Username {
+			operatorUser = &u
+			break
+		}
+	}
+
+	if operatorUser == nil {
+		fmt.Println("operator user does not exist, creating")
+		err = admin.CreateUser(ctx, pg, creds.Username, creds.Password)
+		if err != nil {
+			return err
+		}
+		operatorUser, err = admin.FindUser(ctx, pg, creds.Username)
+		if err != nil {
+			return err
+		}
+	}
+
+	if operatorUser == nil {
+		return errors.New("error creating operator: user not found")
+	}
+
+	if !operatorUser.SuperUser {
+		fmt.Println("operator is not a superuser, fixing")
+		if err := admin.GrantSuperuser(ctx, pg, creds.Username); err != nil {
+			return err
+		}
+	}
+
+	if !operatorUser.IsPassword(creds.Password) {
+		fmt.Println("operator password does not match config, changing")
+		if err := admin.ChangePassword(ctx, pg, creds.Username, creds.Password); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -24,6 +24,12 @@ services:
       - consul
     environment:
       FLY_CONSUL_URL: "http://consul:8500/chaos-postgres-wvo4x1opkz9l5ydn/"
+      SU_USERNAME: "flypgadmin"
+      SU_PASSWORD: "supassword"
+      REPL_USERNAME: "repluser"
+      REPL_PASSWORD: "replpassword"
+      OPERATOR_USERNAME: "postgres"
+      OPERATOR_PASSWORD: "operatorpassword"
     ports:
       - "5432:5432"
       - "5433:5433"
