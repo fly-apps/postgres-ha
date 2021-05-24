@@ -3,10 +3,9 @@ FROM golang:1.16 as flyutil
 WORKDIR /go/src/github.com/fly-examples/postgres-ha
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o flyadmin ./cmd/flyadmin
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o flycheck ./cmd/flycheck
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o flyconfig ./cmd/flyconfig
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o flystart ./cmd/start
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/flyadmin ./cmd/flyadmin
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/flycheck ./cmd/flycheck
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/start ./cmd/start
 
 FROM flyio/stolon:20210401 as stolon
 
@@ -22,13 +21,12 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 
 COPY --from=stolon /go/src/app/bin/* /usr/local/bin/
 COPY --from=postgres_exporter /postgres_exporter /usr/local/bin/
-ADD /bin/* /usr/local/bin/
+# ADD /bin/* /usr/local/bin/
 ADD /scripts/* /fly/
 ADD /config/* /fly/
 RUN useradd -ms /bin/bash stolon
-COPY --from=flyutil /go/src/github.com/fly-examples/postgres-ha/fly* /usr/local/bin/
+COPY --from=flyutil /fly/bin/* /usr/local/bin/
 
 EXPOSE 5432
 
-CMD ["flystart"]
-# CMD ["/fly/start.sh"]
+CMD ["start"]

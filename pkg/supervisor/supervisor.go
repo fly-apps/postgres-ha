@@ -1,22 +1,22 @@
 package supervisor
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
-	"os/signal"
 	"sync"
 	"syscall"
 	"time"
 )
 
 type Supervisor struct {
-	name        string
-	output      *multiOutput
-	procs       []*process
-	procWg      sync.WaitGroup
-	done        chan bool
-	interrupted chan os.Signal
-	timeout     time.Duration
+	name     string
+	output   *multiOutput
+	procs    []*process
+	procWg   sync.WaitGroup
+	stop     chan struct{}
+	stopping bool
+	timeout  time.Duration
 }
 
 func New(name string, timeout time.Duration) *Supervisor {
@@ -58,28 +58,28 @@ func (h *Supervisor) runProcess(proc *process) {
 
 	go func() {
 		defer h.procWg.Done()
-		defer func() { h.done <- true }()
 
-		proc.Run()
+		for {
+			proc.Run()
+			if h.stopping {
+				break
+			}
+			proc.writeLine([]byte("terminated early, restarting"))
+		}
 	}()
-}
-
-func (h *Supervisor) waitForDoneOrInterrupt() {
-	select {
-	case <-h.done:
-	case <-h.interrupted:
-	}
 }
 
 func (h *Supervisor) waitForTimeoutOrInterrupt() {
 	select {
 	case <-time.After(h.timeout):
-	case <-h.interrupted:
+	case <-h.stop:
 	}
 }
 
 func (h *Supervisor) waitForExit() {
-	h.waitForDoneOrInterrupt()
+	<-h.stop
+	fmt.Println("supervisor stopping")
+	h.stopping = true
 
 	for _, proc := range h.procs {
 		go proc.Interrupt()
@@ -93,10 +93,7 @@ func (h *Supervisor) waitForExit() {
 }
 
 func (h *Supervisor) Run() {
-	h.done = make(chan bool, len(h.procs))
-
-	h.interrupted = make(chan os.Signal)
-	signal.Notify(h.interrupted, syscall.SIGINT, syscall.SIGTERM)
+	h.stop = make(chan struct{})
 
 	for _, proc := range h.procs {
 		h.runProcess(proc)
@@ -105,4 +102,8 @@ func (h *Supervisor) Run() {
 	go h.waitForExit()
 
 	h.procWg.Wait()
+}
+
+func (h *Supervisor) Stop() {
+	h.stop <- struct{}{}
 }

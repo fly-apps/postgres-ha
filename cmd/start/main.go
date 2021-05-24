@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/signal"
 	"os/user"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
@@ -13,10 +15,6 @@ import (
 )
 
 func main() {
-	fmt.Println("starting flypg")
-	myuser, _ := user.Current()
-	fmt.Println("current user", myuser)
-
 	node, err := flypg.NewNode()
 	if err != nil {
 		panic(err)
@@ -122,6 +120,15 @@ func main() {
 	if err := flypg.InitConfig("/fly/cluster-spec.json"); err != nil {
 		panic(err)
 	}
+
+	sigch := make(chan os.Signal)
+	signal.Notify(sigch, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigch
+		fmt.Println("Got interrupt, stopping")
+		svisor.Stop()
+	}()
 
 	svisor.Run()
 }
