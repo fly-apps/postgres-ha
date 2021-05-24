@@ -47,11 +47,23 @@ func main() {
 		for range time.Tick(5 * time.Second) {
 			fmt.Println("checking stolon status")
 
-			status, err := node.GetStolonStatus()
+			cd, err := node.GetStolonClusterData()
 			if err != nil {
 				panic(err)
 			}
-			fmt.Printf("stolon status: %#v\n", status)
+
+			currentKeeper := cd.Keepers[node.KeeperUID]
+			fmt.Printf("found keeper: %#v\n", currentKeeper)
+			currentDB := cd.FindDB(currentKeeper)
+			fmt.Printf("found db: %#v\n", currentDB)
+
+			if currentKeeper == nil || currentDB == nil {
+				continue
+			}
+
+			if currentKeeper.Status.Healthy && currentDB.Status.Healthy {
+				fmt.Println("keeper is healthy, db is healthy, role:", currentDB.Spec.Role)
+			}
 		}
 	}()
 
