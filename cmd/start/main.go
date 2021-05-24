@@ -52,16 +52,16 @@ func main() {
 			fmt.Println("checking stolon status")
 
 			cd, err := node.GetStolonClusterData()
-			if err != nil {
+			if err != nil && !errors.Is(err, flypg.ErrClusterNotInitialized) {
 				panic(err)
 			}
 
 			currentKeeper := cd.Keepers[node.KeeperUID]
-			// fmt.Printf("found keeper: %#v\n", currentKeeper)
+			if currentKeeper == nil {
+				continue
+			}
 			currentDB := cd.FindDB(currentKeeper)
-			// fmt.Printf("found db: %#v\n", currentDB)
-
-			if currentKeeper == nil || currentDB == nil {
+			if currentDB == nil {
 				continue
 			}
 

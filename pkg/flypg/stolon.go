@@ -11,6 +11,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+var ErrClusterNotInitialized = errors.New("cluster not initialized")
+
 func keeperUID(privateIP net.IP) string {
 	if data, err := os.ReadFile("/data/keeperstate"); err == nil {
 		keeperstate := map[string]string{}
@@ -40,6 +42,9 @@ func (n *Node) GetStolonClusterData() (s stolon.ClusterData, err error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if strings.HasPrefix(string(output), "nil cluster data: ") {
+			return s, ErrClusterNotInitialized
+		}
 		return s, errors.Wrap(err, "error checking stolon status: "+string(output))
 	}
 
