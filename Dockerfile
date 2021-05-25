@@ -1,4 +1,9 @@
+ARG PG_VERSION=12.5
+ARG VERSION=dev
+
+
 FROM golang:1.16 as flyutil
+ARG VERSION
 
 WORKDIR /go/src/github.com/fly-examples/postgres-ha
 COPY . .
@@ -11,10 +16,11 @@ FROM flyio/stolon:20210525 as stolon
 
 FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 
-FROM postgres:12.5
+FROM postgres:${PG_VERSION}
+ARG VERSION
 
 LABEL fly.app_role=postgres_cluster
-LABEL image_version=1
+LABEL image_version=${VERSION}
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ca-certificates curl bash dnsutils tmux vim-tiny procps jq \
