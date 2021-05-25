@@ -179,6 +179,11 @@ func writeStolonctlEnvFile(n *flypg.Node, filename string) {
 func initOperator(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) error {
 	fmt.Println("configuring operator")
 
+	if creds.Password == "" {
+		fmt.Println("OPERATOR_PASSWORD not set, cannot configure operator")
+		return nil
+	}
+
 	users, err := admin.ListUsers(ctx, pg)
 	if err != nil {
 		return err
