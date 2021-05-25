@@ -14,6 +14,7 @@ FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 FROM postgres:12.5
 
 LABEL fly.app_role=postgres_cluster
+LABEL image_version=1
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ca-certificates curl bash dnsutils tmux vim-tiny procps jq \
