@@ -21,9 +21,9 @@ type ClusterData struct {
 	Proxy         *Proxy    `json:"proxy"`
 }
 
-func (cd *ClusterData) FindDB(keeper *Keeper) *DB {
+func (cd *ClusterData) FindDB(keeperUID string) *DB {
 	for _, db := range cd.DBs {
-		if db.Spec.KeeperUID == keeper.UID {
+		if db.Spec.KeeperUID == keeperUID {
 			return db
 		}
 	}

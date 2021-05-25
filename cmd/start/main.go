@@ -63,7 +63,7 @@ func main() {
 			if currentKeeper == nil {
 				continue
 			}
-			currentDB := cd.FindDB(currentKeeper)
+			currentDB := cd.FindDB(node.KeeperUID)
 			if currentDB == nil {
 				continue
 			}
