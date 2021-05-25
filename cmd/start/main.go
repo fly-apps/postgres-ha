@@ -48,7 +48,10 @@ func main() {
 	}
 
 	go func() {
-		for range time.Tick(1 * time.Second) {
+		t := time.NewTicker(1 * time.Second)
+		defer t.Stop()
+
+		for range t.C {
 			fmt.Println("checking stolon status")
 
 			cd, err := node.GetStolonClusterData()
@@ -65,21 +68,23 @@ func main() {
 				continue
 			}
 
-			if currentKeeper.Status.Healthy && currentDB.Status.Healthy && currentDB.Spec.Role == "master" {
+			if currentKeeper.Status.Healthy && currentDB.Status.Healthy {
 				fmt.Println("keeper is healthy, db is healthy, role:", currentDB.Spec.Role)
+				if currentDB.Spec.Role == "master" {
+					pg, err := node.NewLocalConnection(context.TODO())
+					if err != nil {
+						fmt.Println("error connecting to local postgres", err)
+						continue
+					}
 
-				pg, err := node.NewLocalConnection(context.TODO())
-				if err != nil {
-					fmt.Println("error connecting to local postgres", err)
-					continue
+					if err = initOperator(context.TODO(), pg, node.OperatorCredentials); err != nil {
+						fmt.Println("error configuring operator:", err)
+						continue
+					}
+					fmt.Println("operator ready!")
 				}
 
-				if err = initOperator(context.TODO(), pg, node.OperatorCredentials); err != nil {
-					fmt.Println("error configuring operator:", err)
-					continue
-				}
-				fmt.Println("operator ready!")
-				break
+				return
 			}
 		}
 	}()
