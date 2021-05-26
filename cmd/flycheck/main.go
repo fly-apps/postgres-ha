@@ -1,19 +1,26 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+
+	"github.com/fly-examples/postgres-ha/pkg/flypg"
 )
 
 func main() {
+	node, err := flypg.NewNode()
+	if err != nil {
+		panic(err)
+	}
+
+	ctx := context.TODO()
+
 	categories := []string{"pg", "vm"}
 
 	if len(os.Args) > 1 {
 		categories = os.Args[1:]
 	}
-
-	app := os.Getenv("FLY_APP_NAME")
-	hostname := fmt.Sprintf("%s.internal", app)
 
 	var passed []string
 	var failed []error
@@ -21,11 +28,11 @@ func main() {
 	for _, category := range categories {
 		switch category {
 		case "pg":
-			passed, failed = CheckPostgreSQL(hostname, passed, failed)
+			passed, failed = CheckPostgreSQL(ctx, node, passed, failed)
 		case "vm":
 			passed, failed = CheckVM(passed, failed)
 		case "role":
-			PostgreSQLRole(hostname)
+			PostgreSQLRole(ctx, node)
 			return
 		}
 	}

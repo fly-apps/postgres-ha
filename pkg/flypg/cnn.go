@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v4"
 )
@@ -21,14 +21,32 @@ func openConnection(ctx context.Context, hosts []string, mode string, creds Cred
 	if mode == "" {
 		mode = "any"
 	}
-	url := fmt.Sprintf("postgres://%s/postgres?target_session_attrs=%s", strings.Join(hosts, ","), mode)
-	conf, err := pgx.ParseConfig(url)
 
-	if err != nil {
-		return nil, err
+	result := make(chan *pgx.Conn, len(hosts))
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	for _, host := range hosts {
+		url := fmt.Sprintf("postgres://%s/postgres?target_session_attrs=%s", host, mode)
+		conf, err := pgx.ParseConfig(url)
+		if err != nil {
+			return nil, err
+		}
+		conf.User = creds.Username
+		conf.Password = creds.Password
+		conf.ConnectTimeout = 5 * time.Second
+
+		go func() {
+			if cnn, err := pgx.ConnectConfig(ctx, conf); err == nil {
+				result <- cnn
+			}
+		}()
 	}
-	conf.User = creds.Username
-	conf.Password = creds.Password
 
-	return pgx.ConnectConfig(ctx, conf)
+	select {
+	case cnn := <-result:
+		return cnn, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
