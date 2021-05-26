@@ -23,7 +23,7 @@ LABEL fly.app_role=postgres_cluster
 LABEL image_version=${VERSION}
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
-    ca-certificates curl bash dnsutils tmux vim-tiny procps jq \
+    ca-certificates curl bash dnsutils vim-tiny procps jq \
     && apt autoremove -y
 
 COPY --from=stolon /go/src/app/bin/* /usr/local/bin/
