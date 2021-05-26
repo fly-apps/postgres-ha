@@ -82,14 +82,6 @@ func CheckPostgreSQL(hostname string, passed []string, failed []error) ([]string
 
 // PostgreSQLRole outputs current role
 func PostgreSQLRole(hostname string) {
-	leaderConn, err := openLeaderConnection(hostname)
-	if err != nil {
-		fmt.Println("unknown")
-		os.Exit(1)
-		return
-	}
-	defer leaderConn.Close(context.Background())
-
 	localConn, err := openLocalConnection()
 	if err != nil {
 		fmt.Println("offline")
@@ -98,12 +90,18 @@ func PostgreSQLRole(hostname string) {
 	}
 	defer localConn.Close(context.Background())
 
-	isLeader := leaderConn.PgConn().Conn().RemoteAddr().String() == localConn.PgConn().Conn().RemoteAddr().String()
+	var readonly string
+	err = localConn.QueryRow(context.Background(), "SHOW transaction_read_only").Scan(&readonly)
+	if err != nil {
+		fmt.Println("offline")
+		os.Exit(1)
+		return
+	}
 
-	if isLeader {
-		fmt.Println("leader")
-	} else {
+	if readonly == "on" {
 		fmt.Println("replica")
+	} else {
+		fmt.Println("leader")
 	}
 }
 
@@ -231,6 +229,7 @@ func openConnection(hosts []string, mode string) (*pgx.Conn, error) {
 	}
 	conf.User = "flypgadmin"
 	conf.Password = os.Getenv("SU_PASSWORD")
+	conf.ConnectTimeout = 5 * time.Second
 
 	return pgx.ConnectConfig(context.Background(), conf)
 }

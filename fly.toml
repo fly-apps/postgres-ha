@@ -16,6 +16,7 @@ interval = 60000
 timeout  = 10000
 command  = "flycheck"
 args     = [ "role" ]
+restart_limit = 0
 
 [checks.pg]
 type         = "script"
@@ -24,6 +25,7 @@ timeout      = 10000
 grace_period = "10s"
 command      = "flycheck"
 args         = [ "pg" ]
+restart_limit = 0
 
 [checks.vm]
 type     = "script"
@@ -31,6 +33,7 @@ interval = 30000
 timeout  = 10000
 command  = "flycheck"
 args     = [ "vm" ]
+restart_limit = 0
 
 [experimental]
 private_network = true
