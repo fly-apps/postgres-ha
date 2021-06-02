@@ -10,13 +10,13 @@ import (
 )
 
 type Supervisor struct {
-	name     string
-	output   *multiOutput
-	procs    []*process
-	procWg   sync.WaitGroup
-	stop     chan struct{}
-	stopping bool
-	timeout  time.Duration
+	name    string
+	output  *multiOutput
+	procs   []*process
+	procWg  sync.WaitGroup
+	done    chan bool
+	stop    chan struct{}
+	timeout time.Duration
 }
 
 func New(name string, timeout time.Duration) *Supervisor {
@@ -58,15 +58,17 @@ func (h *Supervisor) runProcess(proc *process) {
 
 	go func() {
 		defer h.procWg.Done()
+		defer func() { h.done <- true }()
 
-		for {
-			proc.Run()
-			if h.stopping {
-				break
-			}
-			proc.writeLine([]byte("terminated early, restarting"))
-		}
+		proc.Run()
 	}()
+}
+
+func (h *Supervisor) waitForDoneOrInterrupt() {
+	select {
+	case <-h.done:
+	case <-h.stop:
+	}
 }
 
 func (h *Supervisor) waitForTimeoutOrInterrupt() {
@@ -77,9 +79,9 @@ func (h *Supervisor) waitForTimeoutOrInterrupt() {
 }
 
 func (h *Supervisor) waitForExit() {
-	<-h.stop
+	h.waitForDoneOrInterrupt()
+
 	fmt.Println("supervisor stopping")
-	h.stopping = true
 
 	for _, proc := range h.procs {
 		go proc.Interrupt()
@@ -93,6 +95,7 @@ func (h *Supervisor) waitForExit() {
 }
 
 func (h *Supervisor) Run() {
+	h.done = make(chan bool, len(h.procs))
 	h.stop = make(chan struct{})
 
 	for _, proc := range h.procs {
