@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/flyadmin ./cmd/flyadmin
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/flycheck ./cmd/flycheck
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/start ./cmd/start
 
-FROM flyio/stolon:20210525 as stolon
+FROM flyio/stolon:401b5cc as stolon
 
 FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 
