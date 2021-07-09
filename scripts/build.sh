@@ -1,7 +1,7 @@
 #! /bin/bash
 set -e
 
-pg_version=12.5
+pg_version=13.3
 build_id=$(date +%Y%m%d)
 version="$pg_version-$build_id"
 
