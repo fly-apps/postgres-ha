@@ -31,7 +31,8 @@ type Node struct {
 	ReplCredentials     Credentials
 	OperatorCredentials Credentials
 
-	ConsulURL *url.URL
+	BackendStore    string
+	BackendStoreURL *url.URL
 
 	KeeperUID string
 	StoreNode string
@@ -48,6 +49,7 @@ func NewNode() (*Node, error) {
 		Region:        "local",
 		PrimaryRegion: "local",
 		DataDir:       "/data",
+		BackendStore:  "consul", // Default
 	}
 
 	if region := os.Getenv("FLY_REGION"); region != "" {
@@ -56,6 +58,10 @@ func NewNode() (*Node, error) {
 
 	if region := os.Getenv("PRIMARY_REGION"); region != "" {
 		node.PrimaryRegion = region
+	}
+
+	if backendStore := os.Getenv("BACKEND_STORE"); backendStore != "" {
+		node.BackendStore = backendStore
 	}
 
 	if appName := os.Getenv("FLY_APP_NAME"); appName != "" {
@@ -69,20 +75,33 @@ func NewNode() (*Node, error) {
 		return nil, errors.Wrap(err, "error getting private ip")
 	}
 
-	rawConsulURL := os.Getenv("FLY_CONSUL_URL")
-	if rawConsulURL == "" {
-		rawConsulURL = os.Getenv("CONSUL_URL")
+	var rawBackendStoreURL string
+
+	switch node.BackendStore {
+	case "consul":
+		rawBackendStoreURL = os.Getenv("FLY_CONSUL_URL")
+		if rawBackendStoreURL == "" {
+			rawBackendStoreURL = os.Getenv("CONSUL_URL")
+		}
+		if rawBackendStoreURL == "" {
+			return nil, errors.New("FLY_CONSUL_URL or CONSUL_URL are required")
+		}
+	case "etcdv3":
+		rawBackendStoreURL = os.Getenv("ETCD_URL")
+		if rawBackendStoreURL == "" {
+			return nil, errors.New("ETCD_URL is required when etcdv3 is specified as the backend store")
+		}
+	default:
+		return nil, errors.New(fmt.Sprintf("Backend store %q is not supported", node.BackendStore))
 	}
-	if rawConsulURL == "" {
-		return nil, errors.New("FLY_CONSUL_URL or CONSUL_URL are required")
-	}
-	node.ConsulURL, err = url.Parse(rawConsulURL)
+
+	node.BackendStoreURL, err = url.Parse(rawBackendStoreURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing consul url")
+		return nil, errors.Wrap(err, "error parsing backend store url")
 	}
 
 	node.KeeperUID = keeperUID(node.PrivateIP)
-	node.StoreNode = strings.TrimPrefix(path.Join(node.ConsulURL.Path, node.KeeperUID), "/")
+	node.StoreNode = strings.TrimPrefix(path.Join(node.BackendStoreURL.Path, node.KeeperUID), "/")
 
 	node.SUCredentials = Credentials{
 		Username: envOrDefault("SU_USERNAME", "flypgadmin"),

@@ -1,12 +1,12 @@
 version: "3.9"  # optional since v1.27.0
 services:
-  consul:
-    image: consul
-    environment:
-      CONSUL_LOG_LEVEL: warn
-      CONSUL_LOCAL_CONFIG: '{"log_level": "info"}'
-    ports:
-      - "8500"
+  # consul:
+  #   image: consul
+  #   environment:
+  #     CONSUL_LOG_LEVEL: warn
+  #     CONSUL_LOCAL_CONFIG: '{"log_level": "info"}'
+  #   ports:
+  #     - "8500"
     # configs:
     #   - source: consul-config.json
     #     target: /redis_config
@@ -18,12 +18,29 @@ services:
     #   - logvolume01:/var/log
     # links:
     #   - redis
+  etcd:
+    image: quay.io/coreos/etcd:v3.2.17
+    hostname: etcd-00
+    command:
+      - etcd
+      - --name=etcd-00
+      - --data-dir=data.etcd
+      - --advertise-client-urls=http://etcd-00:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --initial-advertise-peer-urls=http://etcd-00:2380
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-cluster=etcd-00=http://etcd-00:2380
+      - --initial-cluster-state=new
+      - --initial-cluster-token=token
+    ports:
+      - 2379:2379
   flypg:
     build: .
     links:
-      - consul
+      - etcd
     environment:
-      FLY_CONSUL_URL: "http://consul:8500/chaos-postgres-wvo4x1opkz9l5ydn/"
+      BACKEND_STORE: "etcdv3"
+      ETCD_URL: "http://etcd:2379/test-prefix"
       SU_USERNAME: "flypgadmin"
       SU_PASSWORD: "supassword"
       REPL_USERNAME: "repluser"

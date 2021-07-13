@@ -18,16 +18,29 @@ if [ -z ${node_id} ]; then
     node_id="local"
 fi
 
-consul_node="$(echo $FLY_CONSUL_URL | sed -r 's/https:\/\/[^\/]+\///')$node_id"
+if [ -z ${BACKEND_STORE} ]; then
+  BACKEND_STORE="consul"
+fi
+
+FLY_STORE_URL=""
+if [ ${BACKEND_STORE} -eq "consul" ]; then
+   BACKEND_STORE_NODE="$(echo $FLY_CONSUL_URL | sed -r 's/https:\/\/[^\/]+\///')$node_id"
+   FLY_STORE_URL=$FLY_CONSUL_URL
+fi
+
+if [ ${BACKEND_STORE} -eq "etcdv3" ]; then
+   BACKEND_STORE_NODE="$(echo $FLY_ETCD_URL | sed -r 's/https:\/\/[^\/]+\///')$node_id"
+   FLY_STORE_URL=$FLY_ETCD_URL
+fi
 
 mkdir -p /data
 
 # because stolon needs entirely different sets of env vars :/
 cat <<EOF > /data/.env
 STOLONCTL_CLUSTER_NAME=$FLY_APP_NAME
-STOLONCTL_STORE_BACKEND=consul
-STOLONCTL_STORE_URL=$FLY_CONSUL_URL
-STOLONCTL_STORE_NODE=$consul_node
+STOLONCTL_STORE_BACKEND=$BACKEND_STORE
+STOLONCTL_STORE_URL=$FLY_STORE_URL
+STOLONCTL_STORE_NODE=$BACKEND_STORE_NODE
 
 EOF
 

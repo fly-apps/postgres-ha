@@ -35,8 +35,8 @@ func (n *Node) GetStolonClusterData() (s stolon.ClusterData, err error) {
 	cmd := exec.Command("stolonctl", "clusterdata", "read")
 	cmd.Env = append(os.Environ(),
 		"STOLONCTL_CLUSTER_NAME="+n.AppName,
-		"STOLONCTL_STORE_BACKEND="+"consul",
-		"STOLONCTL_STORE_URL="+n.ConsulURL.String(),
+		"STOLONCTL_STORE_BACKEND="+n.BackendStore,
+		"STOLONCTL_STORE_URL="+n.BackendStoreURL.String(),
 		"STOLONCTL_STORE_NODE="+n.StoreNode,
 	)
 
