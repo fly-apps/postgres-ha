@@ -171,7 +171,7 @@ func writeStolonctlEnvFile(n *flypg.Node, filename string) {
 	b.WriteString("STOLONCTL_CLUSTER_NAME=" + n.AppName + "\n")
 	b.WriteString("STOLONCTL_STORE_BACKEND=" + n.BackendStore + "\n")
 	b.WriteString("STOLONCTL_STORE_URL=" + n.BackendStoreURL.String() + "\n")
-	// b.WriteString("STOLONCTL_STORE_NODE=" + n.StoreNode + "\n")
+	b.WriteString("STOLONCTL_STORE_NODE=" + n.StoreNode + "\n")
 
 	os.WriteFile(filename, b.Bytes(), 0644)
 }
