@@ -44,8 +44,6 @@ STOLONCTL_STORE_NODE=$BACKEND_STORE_NODE
 
 EOF
 
-cat /data/.env
-
 sed 's/STOLONCTL_/STKEEPER_/' /data/.env >> /data/.env
 sed 's/STOLONCTL_/STSENTINEL_/' /data/.env >> /data/.env
 sed 's/STOLONCTL_/STPROXY_/' /data/.env >> /data/.env
