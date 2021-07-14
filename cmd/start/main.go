@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"os/user"
@@ -127,7 +128,7 @@ func main() {
 	svisor.AddProcess("sentinel", "stolon-sentinel", supervisor.WithEnv(sentinelEnv))
 
 	proxyEnv := map[string]string{
-		"STPROXY_LISTEN_ADDRESS": node.PrivateIP.String(),
+		"STPROXY_LISTEN_ADDRESS": net.ParseIP("0.0.0.0").String(),
 		"STPROXY_PORT":           strconv.Itoa(node.PGProxyPort),
 		"STPROXY_LOG_LEVEL":      "info",
 		"STPROXY_CLUSTER_NAME":   node.AppName,
