@@ -102,8 +102,8 @@ func main() {
 		"STKEEPER_PG_PORT":           strconv.Itoa(node.PGPort),
 		"STKEEPER_LOG_LEVEL":         "info",
 		"STKEEPER_CLUSTER_NAME":      node.AppName,
-		"STKEEPER_STORE_BACKEND":     "consul",
-		"STKEEPER_STORE_URL":         node.ConsulURL.String(),
+		"STKEEPER_STORE_BACKEND":     node.BackendStore,
+		"STKEEPER_STORE_URL":         node.BackendStoreURL.String(),
 		"STKEEPER_STORE_NODE":        node.StoreNode,
 	}
 
@@ -119,8 +119,8 @@ func main() {
 		"STSENTINEL_INITIAL_CLUSTER_SPEC": "/fly/cluster-spec.json",
 		"STSENTINEL_LOG_LEVEL":            "info",
 		"STSENTINEL_CLUSTER_NAME":         node.AppName,
-		"STSENTINEL_STORE_BACKEND":        "consul",
-		"STSENTINEL_STORE_URL":            node.ConsulURL.String(),
+		"STSENTINEL_STORE_BACKEND":        node.BackendStore,
+		"STSENTINEL_STORE_URL":            node.BackendStoreURL.String(),
 		"STSENTINEL_STORE_NODE":           node.StoreNode,
 	}
 
@@ -131,8 +131,8 @@ func main() {
 		"STPROXY_PORT":           strconv.Itoa(node.PGProxyPort),
 		"STPROXY_LOG_LEVEL":      "info",
 		"STPROXY_CLUSTER_NAME":   node.AppName,
-		"STPROXY_STORE_BACKEND":  "consul",
-		"STPROXY_STORE_URL":      node.ConsulURL.String(),
+		"STPROXY_STORE_BACKEND":  node.BackendStore,
+		"STPROXY_STORE_URL":      node.BackendStoreURL.String(),
 		"STPROXY_STORE_NODE":     node.StoreNode,
 	}
 
@@ -169,8 +169,8 @@ func main() {
 func writeStolonctlEnvFile(n *flypg.Node, filename string) {
 	var b bytes.Buffer
 	b.WriteString("STOLONCTL_CLUSTER_NAME=" + n.AppName + "\n")
-	b.WriteString("STOLONCTL_STORE_BACKEND=consul\n")
-	b.WriteString("STOLONCTL_STORE_URL=" + n.ConsulURL.String() + "\n")
+	b.WriteString("STOLONCTL_STORE_BACKEND=" + n.BackendStore + "\n")
+	b.WriteString("STOLONCTL_STORE_URL=" + n.BackendStoreURL.String() + "\n")
 	b.WriteString("STOLONCTL_STORE_NODE=" + n.StoreNode + "\n")
 
 	os.WriteFile(filename, b.Bytes(), 0644)

@@ -15,6 +15,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	BackendStoreConsul      = "consul"
+	BackendStoreEtcd        = "etcdv3"
+	BackendStoreUnspecified = ""
+)
+
 type Credentials struct {
 	Username string
 	Password string
@@ -31,7 +37,8 @@ type Node struct {
 	ReplCredentials     Credentials
 	OperatorCredentials Credentials
 
-	ConsulURL *url.URL
+	BackendStore    string
+	BackendStoreURL *url.URL
 
 	KeeperUID string
 	StoreNode string
@@ -62,6 +69,11 @@ func NewNode() (*Node, error) {
 		node.AppName = appName
 	}
 
+	// If BACKEND_STORE is unspecified, it will default to consul.
+	if node.BackendStore = os.Getenv("BACKEND_STORE"); node.BackendStore == BackendStoreUnspecified {
+		node.BackendStore = BackendStoreConsul
+	}
+
 	var err error
 
 	node.PrivateIP, err = privnet.PrivateIPv6()
@@ -69,20 +81,36 @@ func NewNode() (*Node, error) {
 		return nil, errors.Wrap(err, "error getting private ip")
 	}
 
-	rawConsulURL := os.Getenv("FLY_CONSUL_URL")
-	if rawConsulURL == "" {
-		rawConsulURL = os.Getenv("CONSUL_URL")
+	var rawBackendStoreURL string
+
+	switch node.BackendStore {
+	case BackendStoreConsul:
+		rawBackendStoreURL = os.Getenv("FLY_CONSUL_URL")
+		if rawBackendStoreURL == "" {
+			rawBackendStoreURL = os.Getenv("CONSUL_URL")
+		}
+		if rawBackendStoreURL == "" {
+			return nil, errors.New("FLY_CONSUL_URL or CONSUL_URL are required")
+		}
+	case BackendStoreEtcd:
+		rawBackendStoreURL = os.Getenv("FLY_ETCD_URL")
+		if rawBackendStoreURL == "" {
+			rawBackendStoreURL = os.Getenv("ETCD_URL")
+		}
+		if rawBackendStoreURL == "" {
+			return nil, errors.New("FLY_ETCD_URL or ETCD_URL are required")
+		}
+	default:
+		return nil, errors.New(fmt.Sprintf("Backend store %q is not supported", node.BackendStore))
 	}
-	if rawConsulURL == "" {
-		return nil, errors.New("FLY_CONSUL_URL or CONSUL_URL are required")
-	}
-	node.ConsulURL, err = url.Parse(rawConsulURL)
+
+	node.BackendStoreURL, err = url.Parse(rawBackendStoreURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "error parsing consul url")
+		return nil, errors.Wrap(err, "error parsing backend store url")
 	}
 
 	node.KeeperUID = keeperUID(node.PrivateIP)
-	node.StoreNode = strings.TrimPrefix(path.Join(node.ConsulURL.Path, node.KeeperUID), "/")
+	node.StoreNode = strings.TrimPrefix(path.Join(node.BackendStoreURL.Path, node.KeeperUID), "/")
 
 	node.SUCredentials = Credentials{
 		Username: envOrDefault("SU_USERNAME", "flypgadmin"),
