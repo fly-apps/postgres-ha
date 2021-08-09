@@ -1,6 +1,6 @@
 # High Availability Postgres on Fly
 
-This is a ready to go HA Postgres app that runs on Fly.
+This is a ready-to-go HA Postgres app that runs on Fly.
 
 ## Prepare your app
 
@@ -8,11 +8,13 @@ This is a ready to go HA Postgres app that runs on Fly.
 Init gets you going with a Fly application and generates a config file.
 
 ### Set secrets
-This app requires `SU_PASSWORD` and `REPL_PASSWORD` environment variables.
+This app requires `SU_PASSWORD` and `REPL_PASSWORD` environment variables and gives users the option to create a "root" account on new database clusters using 'OPERATOR_PASSWORD'.
 
-`SU_PASSWORD` is the PostgreSQL super user password, the username is `flypgadmin`. You can use this to administer the database once it's running. You should create less privileged users for your applications to use.
+`SU_PASSWORD` is the PostgreSQL super user password, and the username is `flypgadmin`. You can use this to administer the database once it's running. You should create less privileged users for your applications to use.
 
 `REPL_PASSWORD` is used to replicate between instances.
+
+'OPERATOR_PASSWORD' is used to create a "root" user when a cluster is initialized.
 
 > `flyctl secrets set SU_PASSWORD=<PASSWORD> REPL_PASSWORD=<PASSWORD>`
 
