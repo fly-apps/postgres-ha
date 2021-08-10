@@ -112,19 +112,30 @@ func NewNode() (*Node, error) {
 	node.KeeperUID = keeperUID(node.PrivateIP)
 	node.StoreNode = strings.TrimPrefix(path.Join(node.BackendStoreURL.Path, node.KeeperUID), "/")
 
+	requiredPasswords := []string{"SU_PASSWORD", "REPL_PASSWORD"}
+	for _, str := range requiredPasswords {
+		if _, exists := os.LookupEnv(str); !exists {
+			return nil, fmt.Errorf("%s is required", str)
+		}
+	}
+
 	node.SUCredentials = Credentials{
-		Username: envOrDefault("SU_USERNAME", "flypgadmin"),
-		Password: envOrDefault("SU_PASSWORD", "supassword"),
+		Username: "flypgadmin",
+		Password: os.Getenv("SU_PASSWORD"),
 	}
 
 	node.ReplCredentials = Credentials{
-		Username: envOrDefault("REPL_USERNAME", "repluser"),
-		Password: envOrDefault("REPL_PASSWORD", "replpassword"),
+		Username: "repluser",
+		Password: os.Getenv("REPL_PASSWORD"),
 	}
 
-	node.OperatorCredentials = Credentials{
-		Username: envOrDefault("OPERATOR_USERNAME", "postgres"),
-		Password: envOrDefault("OPERATOR_PASSWORD", "operatorpassword"),
+	// The postgres user is optional and will only be created if the
+	// OPERATOR_PASSWORD environment variable is present.
+	if pwd, exists := os.LookupEnv("OPERATOR_PASSWORD"); exists {
+		node.OperatorCredentials = Credentials{
+			Username: "postgres",
+			Password: pwd,
+		}
 	}
 
 	if port, err := strconv.Atoi(os.Getenv("PG_PORT")); err == nil {
@@ -170,12 +181,4 @@ func (n *Node) NewLocalConnection(ctx context.Context) (*pgx.Conn, error) {
 func (n *Node) NewProxyConnection(ctx context.Context) (*pgx.Conn, error) {
 	host := net.JoinHostPort(n.PrivateIP.String(), strconv.Itoa(n.PGProxyPort))
 	return openConnection(ctx, []string{host}, "any", n.SUCredentials)
-}
-
-func envOrDefault(name, defaultVal string) string {
-	val, ok := os.LookupEnv(name)
-	if ok {
-		return val
-	}
-	return defaultVal
 }
