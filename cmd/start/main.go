@@ -82,7 +82,6 @@ func main() {
 						fmt.Println("error configuring operator:", err)
 						continue
 					}
-					fmt.Println("operator ready!")
 				}
 
 				return
@@ -228,6 +227,8 @@ func initOperator(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) er
 			return err
 		}
 	}
+
+	fmt.Println("operator ready!")
 
 	return nil
 }
