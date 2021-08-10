@@ -182,19 +182,3 @@ func (n *Node) NewProxyConnection(ctx context.Context) (*pgx.Conn, error) {
 	host := net.JoinHostPort(n.PrivateIP.String(), strconv.Itoa(n.PGProxyPort))
 	return openConnection(ctx, []string{host}, "any", n.SUCredentials)
 }
-
-func envOrDefault(name, defaultVal string) string {
-	val, ok := os.LookupEnv(name)
-	if ok {
-		return val
-	}
-	return defaultVal
-}
-
-func requireEnv(str string) (string, error) {
-	var ev string
-	if ev = os.Getenv(str); ev == "" {
-		return "", fmt.Errorf("%s is required", str)
-	}
-	return ev, nil
-}
