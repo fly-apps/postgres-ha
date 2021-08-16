@@ -1,50 +1,55 @@
-# fly.toml file generated for postgres-ha-example on 2020-12-22T12:44:02-06:00
+# fly.toml file generated for wild-sun-6218 on 2021-08-16T10:20:05-05:00
 
-app = "postgres-ha-example"
+app = "wild-sun-6218"
 
-# stop accepting new connections while existing sessions complete
 kill_signal = "SIGTERM"
-# allow 5 minutes to cleanly shutdown
 kill_timeout = 300
+services = []
+
+[checks]
+
+  [checks.pg]
+    grace_period = "30s"
+    interval = "15s"
+    method = "get"
+    path = "/flycheck/pg"
+    protocol = "http"
+    port = 5500
+    timeout = "10s"
+
+  [checks.role]
+    grace_period = "30s"
+    interval = "15s"
+    method = "get"
+    path = "/flycheck/role"
+    protocol = "http"
+    port = 5500
+    timeout = "10s"
+
+  [checks.vm]
+    grace_period = "1s"
+    interval = "1m"
+    method = "get"
+    path = "/flycheck/vm"
+    protocol = "http"
+    port = 5500
+    timeout = "10s"
 
 [env]
-BACKEND_STORE = "etcdv3"
-PRIMARY_REGION = "dfw"
-
-[checks.role]
-type     = "script"
-interval = 60000
-timeout  = 10000
-command  = "flycheck"
-args     = [ "role" ]
-restart_limit = 0
-
-[checks.pg]
-type         = "script"
-interval     = 30000
-timeout      = 10000
-grace_period = "10s"
-command      = "flycheck"
-args         = [ "pg" ]
-restart_limit = 0
-
-[checks.vm]
-type     = "script"
-interval = 30000
-timeout  = 10000
-command  = "flycheck"
-args     = [ "vm" ]
-restart_limit = 0
+  BACKEND_STORE = "etcdv3"
+  PRIMARY_REGION = "ord"
 
 [experimental]
-private_network = true
-enable_etcd   = true
-auto_rollback   = false
+  allowed_public_ports = []
+  auto_rollback = false
+  enable_etcd = true
+  private_network = true
 
 [metrics]
-port = 9187
-path = "/metrics"
+  path = "/metrics"
+  port = 9187
 
-[mount]
-source      = "pg_data"
-destination = "/data"
+[[mounts]]
+  destination = "/data"
+  encrypted = false
+  source = "pg_data"

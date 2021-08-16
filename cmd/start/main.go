@@ -163,6 +163,7 @@ func main() {
 		svisor.Stop()
 	}()
 
+	svisor.StartHttpListener()
 	svisor.Run()
 }
 

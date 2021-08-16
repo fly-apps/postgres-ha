@@ -7,6 +7,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/fly-examples/postgres-ha/pkg/flycheck"
 )
 
 type Supervisor struct {
@@ -22,7 +24,7 @@ type Supervisor struct {
 func New(name string, timeout time.Duration) *Supervisor {
 	return &Supervisor{
 		timeout: 5 * time.Second,
-		name:    "flypg",
+		name:    name,
 		output:  &multiOutput{},
 	}
 }
@@ -92,6 +94,10 @@ func (h *Supervisor) waitForExit() {
 	for _, proc := range h.procs {
 		go proc.Kill()
 	}
+}
+
+func (h *Supervisor) StartHttpListener() {
+	flycheck.StartCheckListener()
 }
 
 func (h *Supervisor) Run() {
