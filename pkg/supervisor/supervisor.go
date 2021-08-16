@@ -97,7 +97,7 @@ func (h *Supervisor) waitForExit() {
 }
 
 func (h *Supervisor) StartHttpListener() {
-	flycheck.StartCheckListener()
+	go flycheck.StartCheckListener()
 }
 
 func (h *Supervisor) Run() {
