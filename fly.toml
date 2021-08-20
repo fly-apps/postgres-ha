@@ -36,13 +36,13 @@ services = []
   timeout = "10s"
 
 [env]
-  BACKEND_STORE = "etcdv3"
+  BACKEND_STORE = "consul"
   PRIMARY_REGION = "ord"
 
 [experimental]
   allowed_public_ports = []
   auto_rollback = false
-  enable_etcd = true
+  enable_consul = true
   private_network = true
 
 [metrics]
