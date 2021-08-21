@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -63,7 +62,6 @@ func runPGChecks(w http.ResponseWriter, r *http.Request) {
 func runRoleCheck(w http.ResponseWriter, r *http.Request) {
 	node, err := flypg.NewNode()
 	if err != nil {
-		log.Printf("failed to initialize node: %v", err)
 		handleError(w, err)
 		return
 	}
@@ -72,7 +70,6 @@ func runRoleCheck(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	role, err := PostgreSQLRole(ctx, node)
 	if err != nil {
-		log.Printf("failed to establish connection with role: %v", err)
 		handleError(w, err)
 		return
 	}
