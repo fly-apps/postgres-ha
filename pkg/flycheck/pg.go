@@ -1,10 +1,9 @@
-package main
+package flycheck
 
 import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"time"
 
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
@@ -81,27 +80,23 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 }
 
 // PostgreSQLRole outputs current role
-func PostgreSQLRole(ctx context.Context, node *flypg.Node) {
+func PostgreSQLRole(ctx context.Context, node *flypg.Node) (string, error) {
 	localConn, err := node.NewLocalConnection(ctx)
 	if err != nil {
-		fmt.Println("offline")
-		os.Exit(1)
-		return
+		return "offline", err
 	}
 	defer localConn.Close(ctx)
 
 	var readonly string
 	err = localConn.QueryRow(ctx, "SHOW transaction_read_only").Scan(&readonly)
 	if err != nil {
-		fmt.Println("offline")
-		os.Exit(1)
-		return
+		return "offline", err
 	}
 
 	if readonly == "on" {
-		fmt.Println("replica")
+		return "replica", nil
 	} else {
-		fmt.Println("leader")
+		return "leader", nil
 	}
 }
 
