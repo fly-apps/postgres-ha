@@ -26,42 +26,56 @@ func StartCheckListener() {
 func runVMChecks(w http.ResponseWriter, r *http.Request) {
 	var passed []string
 	var failed []error
-	json.NewEncoder(w).Encode(buildPassFailResp(CheckVM(passed, failed)))
+
+	passed, failed = CheckVM(passed, failed)
+	resp := buildPassFailResp(passed, failed)
+	if len(failed) > 0 {
+		handleError(w, fmt.Errorf(resp))
+	}
+
+	json.NewEncoder(w).Encode(resp)
 }
 
 func runPGChecks(w http.ResponseWriter, r *http.Request) {
 	node, err := flypg.NewNode()
 	if err != nil {
-		panic(err)
+		handleError(w, err)
+		return
 	}
+
 	var passed []string
 	var failed []error
 
 	ctx, cancel := context.WithTimeout(context.TODO(), (time.Second * 10))
-	resp := buildPassFailResp(CheckPostgreSQL(ctx, node, passed, failed))
-	cancel()
+	defer cancel()
+	passed, failed = CheckPostgreSQL(ctx, node, passed, failed)
+	resp := buildPassFailResp(passed, failed)
+
+	if len(failed) > 0 {
+		handleError(w, fmt.Errorf(resp))
+		return
+	}
 
 	json.NewEncoder(w).Encode(resp)
 }
 
 func runRoleCheck(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Checking PG Role")
-
 	node, err := flypg.NewNode()
 	if err != nil {
-		panic(err)
+		log.Printf("failed to initialize node: %v", err)
+		handleError(w, err)
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.TODO(), (time.Second * 10))
+	defer cancel()
 	role, err := PostgreSQLRole(ctx, node)
-	cancel()
-
-	resp := role
 	if err != nil {
-		resp += fmt.Sprintf(": %s", err.Error())
+		log.Printf("failed to establish connection with role: %v", err)
+		handleError(w, err)
+		return
 	}
-
-	json.NewEncoder(w).Encode(resp)
+	json.NewEncoder(w).Encode(role)
 }
 
 func buildPassFailResp(passed []string, failed []error) string {
@@ -74,4 +88,9 @@ func buildPassFailResp(passed []string, failed []error) string {
 	}
 
 	return strings.Join(resp, "\n")
+}
+
+func handleError(w http.ResponseWriter, err error) {
+	w.WriteHeader(http.StatusInternalServerError)
+	json.NewEncoder(w).Encode(err.Error())
 }
