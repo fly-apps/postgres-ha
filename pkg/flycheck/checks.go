@@ -31,6 +31,7 @@ func runVMChecks(w http.ResponseWriter, r *http.Request) {
 	resp := buildPassFailResp(passed, failed)
 	if len(failed) > 0 {
 		handleError(w, fmt.Errorf(resp))
+		return
 	}
 
 	json.NewEncoder(w).Encode(resp)
