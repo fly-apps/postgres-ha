@@ -1,9 +1,8 @@
-# fly.toml file generated for postgres-ha-example on 2020-12-22T12:44:02-06:00
-
 app = "postgres-ha-example"
 
 kill_signal = "SIGTERM"
 kill_timeout = 300
+services = []
 
 [checks]
 
@@ -50,5 +49,4 @@ kill_timeout = 300
 
 [[mounts]]
   destination = "/data"
-  encrypted = false
   source = "pg_data"
