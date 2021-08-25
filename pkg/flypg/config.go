@@ -16,8 +16,14 @@ import (
 
 type Config struct {
 	InitMode             string            `json:"initMode"`
+	ExistingConfig       map[string]string `json:"existingConfig"`
 	PGParameters         map[string]string `json:"pgParameters"`
 	MaxStandbysPerSender int               `json:"maxStandbysPerSender"`
+}
+
+type KeeperState struct {
+	UID        string `json:"UID"`
+	ClusterUID string `json:"ClusterUID"`
 }
 
 func InitConfig(filename string) error {
@@ -46,8 +52,28 @@ func InitConfig(filename string) error {
 	workMem := max(4, (mem / 64))
 	maintenanceWorkMem := max(64, (mem / 20))
 
+	initMode := "new"
+	existingConfig := map[string]string{}
+
+	if _, err := os.Stat("/data/keeperstate"); err == nil {
+		initMode = "existing"
+		var keeperState KeeperState
+		data, err := os.ReadFile("/data/keeperstate")
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal(data, &keeperState)
+		if err != nil {
+			return err
+		}
+		if keeperState.UID != "" {
+			existingConfig["keeperUID"] = keeperState.UID
+		}
+	}
+
 	cfg = Config{
-		InitMode:             "new",
+		InitMode:             initMode,
+		ExistingConfig:       existingConfig,
 		MaxStandbysPerSender: 50,
 		PGParameters: map[string]string{
 			"random_page_cost":                "1.1",
