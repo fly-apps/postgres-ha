@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fly-examples/postgres-ha/pkg/privnet"
 	"github.com/fly-examples/postgres-ha/pkg/supervisor"
 	"github.com/jackc/pgx/v4"
+	"github.com/pkg/errors"
 )
 
 const pathToFile = "/data/postgres/pg_hba.conf"
@@ -19,14 +21,12 @@ const pathToBackup = "/data/postgres/pg_hba.conf.bak"
 const restoreLockFile = "/data/restore.lock"
 
 func Run() error {
-	// Backup pg_hba.conf file.
 	if err := backupHBAFile(); err != nil {
-		return err
+		return errors.Wrap(err, "failed backing up pg_hba.conf")
 	}
 
-	// Write a new temperary pg_hba.conf file.
 	if err := overwriteHBAFile(); err != nil {
-		return err
+		return errors.Wrap(err, "failed to overwrite pg_hba.conf")
 	}
 
 	stolonUser, err := user.Lookup("stolon")
@@ -45,20 +45,16 @@ func Run() error {
 		return err
 	}
 
-	// Start PG process
 	svisor := supervisor.New("flypg", 5*time.Minute)
 	svisor.AddProcess("pg", "postgres -D /data/postgres -p 5432")
 
 	go svisor.Run()
 
-	time.Sleep(time.Second * 2)
-
 	conn, err := openConn()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed opening connection to postgres")
 	}
 
-	// Change internal user credentials.
 	if err = setInternalCredential(conn, "flypgadmin", os.Getenv("SU_PASSWORD")); err != nil {
 		return err
 	}
@@ -71,17 +67,14 @@ func Run() error {
 		return err
 	}
 
-	// Restore original pg_hba.conf file.
 	if err := restoreHBAFile(); err != nil {
-		return err
+		return errors.Wrap(err, "failed to restore original pg_hba.conf")
 	}
 
-	// Stop PG
 	svisor.Stop()
 
-	// Set restore lock
 	if err := setRestoreLock(); err != nil {
-		return err
+		return errors.Wrap(err, "failed to set restore lock")
 	}
 
 	return nil
@@ -115,7 +108,7 @@ func overwriteHBAFile() error {
 	}
 	defer file.Close()
 
-	perm := []byte("host all flypgadmin 0.0.0.0/0 trust")
+	perm := []byte("host all flypgadmin ::0/0 trust")
 	_, err = file.Write(perm)
 	if err != nil {
 		return err
@@ -126,17 +119,33 @@ func overwriteHBAFile() error {
 
 func openConn() (*pgx.Conn, error) {
 	mode := "any"
-	hosts := []string{"localhost"}
+	ip, err := privnet.PrivateIPv6()
+	if err != nil {
+		return nil, err
+	}
 
-	url := fmt.Sprintf("postgres://%s/postgres?target_session_attrs=%s", strings.Join(hosts, ","), mode)
+	hosts := []string{ip.String()}
+	url := fmt.Sprintf("postgres://[%s]/postgres?target_session_attrs=%s", strings.Join(hosts, ","), mode)
 	conf, err := pgx.ParseConfig(url)
-
 	if err != nil {
 		return nil, err
 	}
 	conf.User = "flypgadmin"
 
-	return pgx.ConnectConfig(context.Background(), conf)
+	// Allow up to 30 seconds for PG to boot and accept connections.
+	timeout := time.After(30 * time.Second)
+	tick := time.Tick(1 * time.Second)
+	for {
+		select {
+		case <-timeout:
+			return nil, fmt.Errorf("timed out waiting for successful connection")
+		case <-tick:
+			conn, err := pgx.ConnectConfig(context.Background(), conf)
+			if err == nil {
+				return conn, err
+			}
+		}
+	}
 }
 
 func setInternalCredential(conn *pgx.Conn, user, password string) error {
@@ -174,7 +183,7 @@ func restoreHBAFile() error {
 }
 
 func setRestoreLock() error {
-	file, err := os.OpenFile(restoreLockFile, os.O_RDWR|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(restoreLockFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}

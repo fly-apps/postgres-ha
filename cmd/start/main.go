@@ -24,9 +24,10 @@ import (
 
 func main() {
 
-	isRestore, _ := isActiveRestore()
-	if os.Getenv("RESTORED_FROM") != "" && isRestore {
-		flyunlock.Run()
+	if os.Getenv("FLY_RESTORED_FROM") != "" {
+		if err := manageRestore(); err != nil {
+			panic(err)
+		}
 	}
 
 	node, err := flypg.NewNode()
@@ -61,9 +62,6 @@ func main() {
 		defer t.Stop()
 
 		for range t.C {
-
-			fmt.Println("")
-
 			fmt.Println("checking stolon status")
 
 			cd, err := node.GetStolonClusterData()
@@ -241,6 +239,20 @@ func initOperator(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) er
 	}
 
 	fmt.Println("operator ready!")
+
+	return nil
+}
+
+func manageRestore() error {
+	isRestore, err := isActiveRestore()
+	if err != nil {
+		return err
+	}
+	if isRestore {
+		if err := flyunlock.Run(); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
