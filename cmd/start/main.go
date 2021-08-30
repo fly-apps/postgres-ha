@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
@@ -16,11 +17,19 @@ import (
 
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
 	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
+	"github.com/fly-examples/postgres-ha/pkg/flyunlock"
 	"github.com/fly-examples/postgres-ha/pkg/supervisor"
 	"github.com/jackc/pgx/v4"
 )
 
 func main() {
+
+	if os.Getenv("FLY_RESTORED_FROM") != "" {
+		if err := manageRestore(); err != nil {
+			panic(err)
+		}
+	}
+
 	node, err := flypg.NewNode()
 	if err != nil {
 		panic(err)
@@ -232,4 +241,32 @@ func initOperator(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) er
 	fmt.Println("operator ready!")
 
 	return nil
+}
+
+func manageRestore() error {
+	isRestore, err := isActiveRestore()
+	if err != nil {
+		return err
+	}
+	if isRestore {
+		if err := flyunlock.Run(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func isActiveRestore() (bool, error) {
+	restoreLockFile := flyunlock.LockFilePath()
+	if _, err := os.Stat(restoreLockFile); err == nil {
+		input, err := ioutil.ReadFile(restoreLockFile)
+		if err != nil {
+			return false, err
+		}
+		if string(input) == os.Getenv("FLY_APP_NAME") {
+			return false, nil
+		}
+	}
+	return true, nil
 }
