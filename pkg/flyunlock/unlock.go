@@ -46,7 +46,7 @@ func Run() error {
 	}
 
 	svisor := supervisor.New("flypg", 5*time.Minute)
-	svisor.AddProcess("pg", "postgres -D /data/postgres -p 5432")
+	svisor.AddProcess("pg", "postgres -D /data/postgres -p 5432 -h localhost")
 
 	go svisor.Run()
 
@@ -133,7 +133,7 @@ func openConn() (*pgx.Conn, error) {
 	conf.User = "flypgadmin"
 
 	// Allow up to 30 seconds for PG to boot and accept connections.
-	timeout := time.After(30 * time.Second)
+	timeout := time.After(2 * time.Minute)
 	tick := time.Tick(1 * time.Second)
 	for {
 		select {
