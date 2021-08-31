@@ -22,6 +22,10 @@ const restoreLockFile = "/data/restore.lock"
 
 func Run() error {
 	if err := backupHBAFile(); err != nil {
+		if os.IsNotExist(err) {
+			// if there's no pg_hba.conf file assume we are a new standby coming online
+			return nil
+		}
 		return errors.Wrap(err, "failed backing up pg_hba.conf")
 	}
 
