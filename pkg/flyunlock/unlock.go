@@ -45,6 +45,14 @@ func Run() error {
 		return err
 	}
 
+	if _, err := os.Stat("/data/postgres/standby.signal"); err == nil {
+		fmt.Println("restoring from a hot standby. clearing standby signal so we can boot.")
+		// We are restoring from a hot standby, so we need to clear the signal so we can boot.
+		if err = os.Remove("/data/postgres/standby.signal"); err != nil {
+			return errors.Wrap(err, "failed to remove standby signal")
+		}
+	}
+
 	ip, err := privnet.PrivateIPv6()
 	if err != nil {
 		return err
