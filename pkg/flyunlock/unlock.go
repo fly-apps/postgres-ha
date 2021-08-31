@@ -45,8 +45,12 @@ func Run() error {
 		return err
 	}
 
+	ip, err := privnet.PrivateIPv6()
+	if err != nil {
+		return err
+	}
 	svisor := supervisor.New("flypg", 5*time.Minute)
-	svisor.AddProcess("pg", "postgres -D /data/postgres -p 5432 -h localhost")
+	svisor.AddProcess("pg", fmt.Sprintf("postgres -D /data/postgres -p 5432 -h %s", ip.String()))
 
 	go svisor.Run()
 
