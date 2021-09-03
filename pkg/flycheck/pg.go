@@ -4,22 +4,17 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
+	"github.com/fly-examples/postgres-ha/pkg/privnet"
 	"github.com/jackc/pgx/v4"
 )
 
 // CheckPostgreSQL health, replication, etc
 func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, failed []error) ([]string, []error) {
 	var msg string
-
-	leaderConn, err := node.NewLeaderConnection(ctx)
-	if err != nil {
-		err = fmt.Errorf("leader check: %v", err.Error())
-		return passed, append(failed, err)
-	}
-	defer leaderConn.Close(ctx)
 
 	localConn, err := node.NewLocalConnection(ctx)
 	if err != nil {
@@ -35,22 +30,36 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 	}
 	defer proxyConn.Close(ctx)
 
-	isLeader := leaderConn.PgConn().Conn().RemoteAddr().String() == localConn.PgConn().Conn().RemoteAddr().String()
-	if isLeader {
-		passed = append(passed, "replication: currently leader")
+	primaryAddr, err := resolvePrimary(ctx, localConn)
+	if err != nil {
+		err = fmt.Errorf("Unable to resolve primary")
+		return passed, append(failed, err)
 	}
 
-	if !isLeader {
-		msg, err = leaderAvailable(ctx, leaderConn, "leader")
+	fmt.Printf("%s == %s\n", primaryAddr, node.PrivateIP.String())
 
+	isLeader := primaryAddr == node.PrivateIP.String()
+	if isLeader {
+		passed = append(passed, "replication: currently leader")
+
+	}
+
+	// Standby specific checks
+	if !isLeader {
+		leaderConn, err := node.NewConnection(ctx, primaryAddr)
+		if err != nil {
+			err = fmt.Errorf("leader check: %v", err.Error())
+			return passed, append(failed, err)
+		}
+		defer leaderConn.Close(ctx)
+
+		msg, err = leaderAvailable(ctx, leaderConn, "leader")
 		if err != nil {
 			failed = append(failed, err)
 		} else {
 			passed = append(passed, msg)
 		}
-	}
 
-	if !isLeader {
 		msg, err = replicationLag(ctx, leaderConn, localConn)
 		if err != nil {
 			if err != pgx.ErrNoRows {
@@ -62,7 +71,6 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 	}
 
 	msg, err = leaderAvailable(ctx, proxyConn, "proxy")
-
 	if err != nil {
 		failed = append(failed, err)
 	} else {
@@ -160,4 +168,40 @@ func connectionCount(ctx context.Context, local *pgx.Conn) (string, error) {
 	}
 
 	return fmt.Sprintf("connections: %d used, %d reserved, %d max", used, reserved, max), nil
+}
+
+// resolvePrimary works to resolve the primary address by parsing the primary_conninfo
+// configuration setting.
+func resolvePrimary(ctx context.Context, local *pgx.Conn) (string, error) {
+	rows, err := local.Query(context.TODO(), "show primary_conninfo;")
+	if err != nil {
+		return "", err
+	}
+
+	var primaryConn string
+	for rows.Next() {
+		err = rows.Scan(&primaryConn)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if primaryConn == "" {
+		ip, err := privnet.PrivateIPv6()
+		if err != nil {
+			return "", err
+		}
+		return ip.String(), nil
+	}
+
+	connMap := map[string]string{}
+	for _, entry := range strings.Split(primaryConn, " ") {
+		if entry == "" {
+			continue
+		}
+		parts := strings.Split(entry, "=")
+		connMap[parts[0]] = parts[1]
+	}
+
+	return connMap["host"], nil
 }

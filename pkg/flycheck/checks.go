@@ -48,18 +48,24 @@ func runPGChecks(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), (time.Second * 10))
 	defer cancel()
-	passed, failed = CheckPostgreSQL(ctx, node, passed, failed)
-	resp := buildPassFailResp(passed, failed)
 
+	pgTime := time.Now()
+	passed, failed = CheckPostgreSQL(ctx, node, passed, failed)
+
+	resp := buildPassFailResp(passed, failed)
 	if len(failed) > 0 {
 		handleError(w, fmt.Errorf(resp))
 		return
 	}
 
+	fmt.Printf("PG checks completed in: %v\n", time.Since(pgTime))
+
 	json.NewEncoder(w).Encode(resp)
 }
 
 func runRoleCheck(w http.ResponseWriter, r *http.Request) {
+	roleTime := time.Now()
+
 	node, err := flypg.NewNode()
 	if err != nil {
 		handleError(w, err)
@@ -73,6 +79,9 @@ func runRoleCheck(w http.ResponseWriter, r *http.Request) {
 		handleError(w, err)
 		return
 	}
+
+	fmt.Printf("Role check completed in: %v\n", time.Since(roleTime))
+
 	json.NewEncoder(w).Encode(role)
 }
 
