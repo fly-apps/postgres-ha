@@ -16,50 +16,60 @@ import (
 func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, failed []error) ([]string, []error) {
 	var msg string
 
+	localtime := time.Now()
 	localConn, err := node.NewLocalConnection(ctx)
 	if err != nil {
 		err = fmt.Errorf("pg: %v", err.Error())
 		return passed, append(failed, err)
 	}
 	defer localConn.Close(ctx)
+	fmt.Printf("Took %v to open local connection.\n", time.Since(localtime))
 
+	proxyt := time.Now()
 	proxyConn, err := node.NewProxyConnection(ctx)
 	if err != nil {
 		err = fmt.Errorf("proxy: %v", err.Error())
 		return passed, append(failed, err)
 	}
 	defer proxyConn.Close(ctx)
+	fmt.Printf("Took %v to open proxy connection.\n", time.Since(proxyt))
 
+	primTime := time.Now()
 	primaryAddr, err := resolvePrimary(ctx, localConn)
 	if err != nil {
 		err = fmt.Errorf("Unable to resolve primary")
 		return passed, append(failed, err)
 	}
-
-	fmt.Printf("%s == %s\n", primaryAddr, node.PrivateIP.String())
+	fmt.Printf("Took %v to resolvePrimary.\n", time.Since(primTime))
 
 	isLeader := primaryAddr == node.PrivateIP.String()
 	if isLeader {
 		passed = append(passed, "replication: currently leader")
-
 	}
 
 	// Standby specific checks
 	if !isLeader {
+
+		lTime := time.Now()
+
 		leaderConn, err := node.NewConnection(ctx, primaryAddr)
 		if err != nil {
 			err = fmt.Errorf("leader check: %v", err.Error())
 			return passed, append(failed, err)
 		}
 		defer leaderConn.Close(ctx)
+		fmt.Printf("Took %v to open leader connection.\n", time.Since(lTime))
 
+		laTime := time.Now()
 		msg, err = leaderAvailable(ctx, leaderConn, "leader")
 		if err != nil {
 			failed = append(failed, err)
 		} else {
 			passed = append(passed, msg)
 		}
+		fmt.Printf("Took %v to check leader availability.\n", time.Since(laTime))
 
+		replTime := time.Now()
 		msg, err = replicationLag(ctx, leaderConn, localConn)
 		if err != nil {
 			if err != pgx.ErrNoRows {
@@ -68,32 +78,41 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 		} else {
 			passed = append(passed, msg)
 		}
+		fmt.Printf("Took %v to check replication lab.\n", time.Since(replTime))
+
 	}
 
+	pTime := time.Now()
 	msg, err = leaderAvailable(ctx, proxyConn, "proxy")
 	if err != nil {
 		failed = append(failed, err)
 	} else {
 		passed = append(passed, msg)
 	}
+	fmt.Printf("Took %v to check leader available from proxy.\n", time.Since(pTime))
 
+	cTime := time.Now()
 	msg, err = connectionCount(ctx, localConn)
 	if err != nil {
 		failed = append(failed, err)
 	} else {
 		passed = append(passed, msg)
 	}
+	fmt.Printf("Took %v to check connection count.\n", time.Since(cTime))
 
 	return passed, failed
 }
 
 // PostgreSQLRole outputs current role
 func PostgreSQLRole(ctx context.Context, node *flypg.Node) (string, error) {
+	t := time.Now()
 	localConn, err := node.NewLocalConnection(ctx)
 	if err != nil {
 		return "offline", err
 	}
 	defer localConn.Close(ctx)
+
+	fmt.Printf("Took %v to open local connection.\n", time.Since(t))
 
 	var readonly string
 	err = localConn.QueryRow(ctx, "SHOW transaction_read_only").Scan(&readonly)

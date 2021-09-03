@@ -1,41 +1,56 @@
-app = "postgres-ha-example"
+# fly.toml file generated for morning-shadow-8332 on 2021-09-03T10:15:51-05:00
+
+app = "morning-shadow-8332"
 
 kill_signal = "SIGTERM"
 kill_timeout = 300
+processes = []
 services = []
 
 [checks]
 
   [checks.pg]
     grace_period = "30s"
+    headers = []
     interval = "15s"
     method = "get"
     path = "/flycheck/pg"
     port = 5500
+    protocol = "http"
+    restart_limit = 0
     timeout = "10s"
+    tls_skip_verify = false
     type = "http"
 
   [checks.role]
     grace_period = "30s"
+    headers = []
     interval = "15s"
     method = "get"
     path = "/flycheck/role"
     port = 5500
+    protocol = "http"
+    restart_limit = 0
     timeout = "10s"
+    tls_skip_verify = false
     type = "http"
 
   [checks.vm]
     grace_period = "1s"
+    headers = []
     interval = "1m"
     method = "get"
     path = "/flycheck/vm"
     port = 5500
+    protocol = "http"
+    restart_limit = 0
     timeout = "10s"
+    tls_skip_verify = false
     type = "http"
 
 [env]
   BACKEND_STORE = "consul"
-  PRIMARY_REGION = "ord"
+  PRIMARY_REGION = "dev"
 
 [experimental]
   allowed_public_ports = []
@@ -49,4 +64,5 @@ services = []
 
 [[mounts]]
   destination = "/data"
+  encrypted = false
   source = "pg_data"

@@ -37,6 +37,8 @@ func runVMChecks(w http.ResponseWriter, r *http.Request) {
 }
 
 func runPGChecks(w http.ResponseWriter, r *http.Request) {
+	pgTime := time.Now()
+
 	node, err := flypg.NewNode()
 	if err != nil {
 		handleError(w, err)
@@ -49,7 +51,6 @@ func runPGChecks(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.TODO(), (time.Second * 10))
 	defer cancel()
 
-	pgTime := time.Now()
 	passed, failed = CheckPostgreSQL(ctx, node, passed, failed)
 
 	resp := buildPassFailResp(passed, failed)
