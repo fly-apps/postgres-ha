@@ -71,15 +71,15 @@ func Run() error {
 		return errors.Wrap(err, "failed opening connection to postgres")
 	}
 
-	if err = setInternalCredential(conn, "flypgadmin", os.Getenv("SU_PASSWORD")); err != nil {
+	if err = setInternalCredential(conn, "flypgadmin", os.Getenv("SU_PASSWORD"), false); err != nil {
 		return err
 	}
 
-	if err = setInternalCredential(conn, "repluser", os.Getenv("REPL_PASSWORD")); err != nil {
+	if err = setInternalCredential(conn, "repluser", os.Getenv("REPL_PASSWORD"), false); err != nil {
 		return err
 	}
 
-	if err = setInternalCredential(conn, "postgres", os.Getenv("OPERATOR_PASSWORD")); err != nil {
+	if err = setInternalCredential(conn, "postgres", os.Getenv("OPERATOR_PASSWORD"), true); err != nil {
 		return err
 	}
 
@@ -164,13 +164,16 @@ func openConn() (*pgx.Conn, error) {
 	}
 }
 
-func setInternalCredential(conn *pgx.Conn, user, password string) error {
+func setInternalCredential(conn *pgx.Conn, user, password string, optional bool) error {
 	sql := fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s'", user, password)
 	_, err := conn.Exec(context.Background(), sql)
 	if err != nil {
+		if optional {
+			fmt.Printf("failed to reset credentials for user: %q. error: %v", user, err)
+			return nil
+		}
 		return err
 	}
-
 	return nil
 }
 
