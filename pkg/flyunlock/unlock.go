@@ -239,12 +239,3 @@ func setRestoreLock() error {
 	}
 	return nil
 }
-
-func contains(list []string, key string) bool {
-	for _, elem := range list {
-		if elem == key {
-			return true
-		}
-	}
-	return false
-}
