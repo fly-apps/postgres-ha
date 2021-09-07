@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
 	"github.com/fly-examples/postgres-ha/pkg/privnet"
 	"github.com/fly-examples/postgres-ha/pkg/supervisor"
 	"github.com/jackc/pgx/v4"
@@ -71,16 +72,8 @@ func Run() error {
 		return errors.Wrap(err, "failed opening connection to postgres")
 	}
 
-	if err = setInternalCredential(conn, "flypgadmin", os.Getenv("SU_PASSWORD"), false); err != nil {
-		return err
-	}
-
-	if err = setInternalCredential(conn, "repluser", os.Getenv("REPL_PASSWORD"), false); err != nil {
-		return err
-	}
-
-	if err = setInternalCredential(conn, "postgres", os.Getenv("OPERATOR_PASSWORD"), true); err != nil {
-		return err
+	if err = createRequiredUsers(conn); err != nil {
+		return errors.Wrap(err, "failed creating required users")
 	}
 
 	if err := restoreHBAFile(); err != nil {
@@ -164,16 +157,48 @@ func openConn() (*pgx.Conn, error) {
 	}
 }
 
-func setInternalCredential(conn *pgx.Conn, user, password string, optional bool) error {
-	sql := fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s'", user, password)
-	_, err := conn.Exec(context.Background(), sql)
+func createRequiredUsers(conn *pgx.Conn) error {
+	curUsers, err := admin.ListUsers(context.TODO(), conn)
 	if err != nil {
-		if optional {
-			fmt.Printf("failed to reset credentials for user: %q. error: %v", user, err)
-			return nil
-		}
-		return err
+		return errors.Wrap(err, "failed to list current users")
 	}
+
+	credMap := map[string]string{
+		"flypgadmin": os.Getenv("SU_PASSWORD"),
+		"repluser":   os.Getenv("REPL_PASSWORD"),
+		"postgres":   os.Getenv("OPERATOR_PASSWORD"),
+	}
+
+	for user, pass := range credMap {
+
+		exists := false
+		for _, curUser := range curUsers {
+			if user == curUser.Username {
+				exists = true
+			}
+		}
+		var sql string
+
+		if exists {
+			sql = fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s'", user, pass)
+		} else {
+			// create user
+			switch user {
+			case "flypgadmin":
+				sql = fmt.Sprintf(`CREATE USER %s WITH SUPERUSER LOGIN PASSWORD '%s'`, user, pass)
+			case "repluser":
+				sql = fmt.Sprintf(`CREATE USER %s WITH REPLICATION PASSWORD '%s'`, user, pass)
+			case "postgres":
+				sql = fmt.Sprintf(`CREATE USER %s WITH LOGIN PASSWORD '%s'`, user, pass)
+			}
+		}
+
+		_, err := conn.Exec(context.Background(), sql)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
