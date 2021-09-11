@@ -9,6 +9,7 @@ import (
 
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
 	"github.com/fly-examples/postgres-ha/pkg/privnet"
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 )
 
@@ -16,61 +17,51 @@ import (
 func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, failed []error) ([]string, []error) {
 	var msg string
 
-	localtime := time.Now()
+	pTime := time.Now()
+	leaderConn, err := node.NewProxyConnection(ctx)
+	if err != nil {
+		err = fmt.Errorf("proxy: %v", err.Error())
+		fmt.Printf("Proxy error: %s\n", err)
+		// return passed, append(failed, err)
+	}
+	defer leaderConn.Close(ctx)
+	fmt.Printf("It took %s to open up proxy connection.", time.Since(pTime))
+
+	// Resolve the leader address from the proxy connection.
+	leaderAddr, err := resolveServerIp(ctx, leaderConn)
+	if err != nil {
+		err = fmt.Errorf("failed to resolve leader address from proxy conn: %q", err.Error())
+		return passed, append(failed, err)
+	}
+
 	localConn, err := node.NewLocalConnection(ctx)
 	if err != nil {
-		err = fmt.Errorf("pg: %v", err.Error())
+		err = fmt.Errorf("local: %v", err.Error())
 		return passed, append(failed, err)
 	}
 	defer localConn.Close(ctx)
-	fmt.Printf("Took %v to open local connection.\n", time.Since(localtime))
 
-	proxyt := time.Now()
-	proxyConn, err := node.NewProxyConnection(ctx)
-	if err != nil {
-		err = fmt.Errorf("proxy: %v", err.Error())
-		return passed, append(failed, err)
-	}
-	defer proxyConn.Close(ctx)
-	fmt.Printf("Took %v to open proxy connection.\n", time.Since(proxyt))
+	isLeader := (leaderAddr == node.PrivateIP.String())
 
-	primTime := time.Now()
-	primaryAddr, err := resolvePrimary(ctx, localConn)
-	if err != nil {
-		err = fmt.Errorf("Unable to resolve primary")
-		return passed, append(failed, err)
-	}
-	fmt.Printf("Took %v to resolvePrimary.\n", time.Since(primTime))
-
-	isLeader := primaryAddr == node.PrivateIP.String()
+	// Primary specific checks
 	if isLeader {
-		passed = append(passed, "replication: currently leader")
-	}
+		// If we are the leader, no need to open up another connection.
+		// passed = append(passed, "replication: currently leader")
 
-	// Standby specific checks
-	if !isLeader {
-
-		lTime := time.Now()
-
-		leaderConn, err := node.NewConnection(ctx, primaryAddr)
-		if err != nil {
-			err = fmt.Errorf("leader check: %v", err.Error())
-			return passed, append(failed, err)
-		}
-		defer leaderConn.Close(ctx)
-		fmt.Printf("Took %v to open leader connection.\n", time.Since(lTime))
-
-		laTime := time.Now()
-		msg, err = leaderAvailable(ctx, leaderConn, "leader")
+		// Verify leader is not readonly
+		fmt.Println("Checking readonly")
+		rOnlyt := time.Now()
+		msg, err = connReadOnly(ctx, leaderConn, "leader", false)
 		if err != nil {
 			failed = append(failed, err)
 		} else {
 			passed = append(passed, msg)
 		}
-		fmt.Printf("Took %v to check leader availability.\n", time.Since(laTime))
+		fmt.Printf("Time took to measure readonly %s\n", time.Since(rOnlyt))
 
+		// Replication lag checks
 		replTime := time.Now()
-		msg, err = replicationLag(ctx, leaderConn, localConn)
+		msg, err = replicationLag(ctx, leaderConn)
 		if err != nil {
 			if err != pgx.ErrNoRows {
 				failed = append(failed, err)
@@ -78,18 +69,32 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 		} else {
 			passed = append(passed, msg)
 		}
-		fmt.Printf("Took %v to check replication lab.\n", time.Since(replTime))
+		fmt.Printf("Time took to measure replication lag: %v\n", time.Since(replTime))
 
 	}
 
-	pTime := time.Now()
-	msg, err = leaderAvailable(ctx, proxyConn, "proxy")
-	if err != nil {
-		failed = append(failed, err)
-	} else {
-		passed = append(passed, msg)
+	// Standby specific checks
+	if !isLeader {
+		// TODO - Verify standby is in ReadOnly
+		msg, err = connReadOnly(ctx, localConn, "standby", true)
+		if err != nil {
+			failed = append(failed, err)
+		} else {
+			passed = append(passed, msg)
+		}
+
+		// TODO - Verify primary conn data matches our leader.
+		ldrAddr, err := resolvePrimaryFromStandby(ctx, localConn)
+		if err != nil {
+			failed = append(failed, fmt.Errorf("failed to resolve primary from local conn"))
+		}
+		if ldrAddr == leaderAddr {
+			passed = append(passed, fmt.Sprintf("connected to leader"))
+		} else {
+			fmt.Printf("Incorrect leader assignment: Leader: %s, Connected to: %s\n", leaderAddr, ldrAddr)
+			failed = append(failed, fmt.Errorf("incorrect leader assignment"))
+		}
 	}
-	fmt.Printf("Took %v to check leader available from proxy.\n", time.Since(pTime))
 
 	cTime := time.Now()
 	msg, err = connectionCount(ctx, localConn)
@@ -98,7 +103,7 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 	} else {
 		passed = append(passed, msg)
 	}
-	fmt.Printf("Took %v to check connection count.\n", time.Since(cTime))
+	fmt.Printf("Took %s to check connection count", time.Since(cTime))
 
 	return passed, failed
 }
@@ -127,49 +132,60 @@ func PostgreSQLRole(ctx context.Context, node *flypg.Node) (string, error) {
 	}
 }
 
-func leaderAvailable(ctx context.Context, conn *pgx.Conn, name string) (string, error) {
+func connReadOnly(ctx context.Context, conn *pgx.Conn, name string, expected bool) (string, error) {
 	var readonly string
-	err := conn.QueryRow(ctx, "SHOW transaction_read_only").Scan(&readonly)
+	err := conn.QueryRow(ctx, "SHOW transaction_read_only;").Scan(&readonly)
 	if err != nil {
 		return "", fmt.Errorf("%s check: %v", name, err)
 	}
 
 	if readonly == "on" {
-		return "", fmt.Errorf("%s check: %v", name, err)
+		if expected {
+			return fmt.Sprintf("%s check: readonly", name), nil
+		} else {
+			return "", fmt.Errorf("%s check: readonly", name)
+		}
 	}
-	return fmt.Sprintf("%s check: %s connected", name, conn.PgConn().Conn().RemoteAddr()), nil
+	if readonly == "off" {
+		if expected {
+			return "", fmt.Errorf("%s check: accepting writes", name)
+		} else {
+			return fmt.Sprintf("%s check: accepting writes", name), nil
+		}
+	}
+	return "", fmt.Errorf("unable to resolve readonly state")
 }
 
-func replicationLag(ctx context.Context, leader *pgx.Conn, local *pgx.Conn) (string, error) {
-	if leader.PgConn().Conn().RemoteAddr().String() == local.PgConn().Conn().RemoteAddr().String() {
-		return "replication lag: currently leader", nil
-	}
-
-	self := local.PgConn().Conn().RemoteAddr().String()
-	localhost, _, err := net.SplitHostPort(self)
-
+func replicationLag(ctx context.Context, leader *pgx.Conn) (string, error) {
+	var cases []string
+	sql := `select client_addr, replay_lag from pg_stat_replication;`
+	rows, err := leader.Query(ctx, sql)
 	if err != nil {
-		return "", fmt.Errorf("replication lag: couldn't get localhost, %v", err)
+		return "", err
 	}
-	sql := fmt.Sprintf("select COALESCE(write_lag, '0 seconds'::interval) as delay from pg_stat_replication where client_addr='%s'", localhost)
-
-	var delay time.Duration
-
-	err = leader.QueryRow(ctx, sql).Scan(&delay)
-
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return "replication lag: no lag", nil
+	for rows.Next() {
+		var clientAddr net.IPNet
+		var replayLag pgtype.Interval
+		err = rows.Scan(&clientAddr, &replayLag)
+		if err != nil {
+			return "", err
 		}
-		return "", fmt.Errorf("replication lag: %v", err)
+
+		var dur time.Duration
+		dur = time.Duration(replayLag.Microseconds)
+
+		if dur >= 3*time.Second {
+			note := fmt.Sprintf("%s is lagging behind %s", clientAddr.IP.String(), dur)
+			cases = append(cases, note)
+		}
 	}
 
-	msg := fmt.Sprintf("replication lag: %v", delay)
-	if delay > (time.Second * 10) {
-		return "", fmt.Errorf(msg)
+	output := strings.Join(cases, "\n")
+	if len(cases) > 0 {
+		return "", fmt.Errorf(output)
 	}
 
-	return msg, nil
+	return output, nil
 }
 
 func connectionCount(ctx context.Context, local *pgx.Conn) (string, error) {
@@ -191,7 +207,7 @@ func connectionCount(ctx context.Context, local *pgx.Conn) (string, error) {
 
 // resolvePrimary works to resolve the primary address by parsing the primary_conninfo
 // configuration setting.
-func resolvePrimary(ctx context.Context, local *pgx.Conn) (string, error) {
+func resolvePrimaryFromStandby(ctx context.Context, local *pgx.Conn) (string, error) {
 	rows, err := local.Query(context.TODO(), "show primary_conninfo;")
 	if err != nil {
 		return "", err
@@ -223,4 +239,20 @@ func resolvePrimary(ctx context.Context, local *pgx.Conn) (string, error) {
 	}
 
 	return connMap["host"], nil
+}
+
+// resolveServerIp takes a connection and will return the destination server address.
+func resolveServerIp(ctx context.Context, conn *pgx.Conn) (string, error) {
+	rows, err := conn.Query(context.TODO(), "SELECT inet_server_addr();")
+	if err != nil {
+		return "", err
+	}
+	var addr *net.IPNet
+	for rows.Next() {
+		err = rows.Scan(&addr)
+		if err != nil {
+			return "", err
+		}
+	}
+	return addr.IP.String(), nil
 }
