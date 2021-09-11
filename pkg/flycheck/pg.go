@@ -17,39 +17,40 @@ import (
 func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, failed []error) ([]string, []error) {
 	var msg string
 
-	pTime := time.Now()
+	proxyTime := time.Now()
 	leaderConn, err := node.NewProxyConnection(ctx)
 	if err != nil {
 		err = fmt.Errorf("proxy: %v", err.Error())
-		fmt.Printf("Proxy error: %s\n", err)
-		// return passed, append(failed, err)
+		return passed, append(failed, err)
 	}
 	defer leaderConn.Close(ctx)
-	fmt.Printf("It took %s to open up proxy connection.", time.Since(pTime))
+	fmt.Printf("Time took to open proxy connection %s.\n", time.Since(proxyTime))
 
 	// Resolve the leader address from the proxy connection.
+	lResolveTime := time.Now()
 	leaderAddr, err := resolveServerIp(ctx, leaderConn)
 	if err != nil {
 		err = fmt.Errorf("failed to resolve leader address from proxy conn: %q", err.Error())
 		return passed, append(failed, err)
 	}
+	fmt.Printf("Time took to resolve leader connection %s.\n", time.Since(lResolveTime))
 
+	fmt.Printf("Leader IP: %s\n", leaderAddr)
+	fmt.Printf("%s == %s", leaderAddr, node.PrivateIP.String())
+
+	localTime := time.Now()
 	localConn, err := node.NewLocalConnection(ctx)
 	if err != nil {
 		err = fmt.Errorf("local: %v", err.Error())
 		return passed, append(failed, err)
 	}
 	defer localConn.Close(ctx)
+	fmt.Printf("Time took to open local connection %s.\n", time.Since(localTime))
 
 	isLeader := (leaderAddr == node.PrivateIP.String())
-
 	// Primary specific checks
 	if isLeader {
-		// If we are the leader, no need to open up another connection.
-		// passed = append(passed, "replication: currently leader")
-
 		// Verify leader is not readonly
-		fmt.Println("Checking readonly")
 		rOnlyt := time.Now()
 		msg, err = connReadOnly(ctx, leaderConn, "leader", false)
 		if err != nil {
@@ -75,15 +76,16 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 
 	// Standby specific checks
 	if !isLeader {
-		// TODO - Verify standby is in ReadOnly
+		sReadtime := time.Now()
 		msg, err = connReadOnly(ctx, localConn, "standby", true)
 		if err != nil {
 			failed = append(failed, err)
 		} else {
 			passed = append(passed, msg)
 		}
+		fmt.Printf("Time took to check readonly: %v\n", time.Since(sReadtime))
 
-		// TODO - Verify primary conn data matches our leader.
+		laTime := time.Now()
 		ldrAddr, err := resolvePrimaryFromStandby(ctx, localConn)
 		if err != nil {
 			failed = append(failed, fmt.Errorf("failed to resolve primary from local conn"))
@@ -94,6 +96,7 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 			fmt.Printf("Incorrect leader assignment: Leader: %s, Connected to: %s\n", leaderAddr, ldrAddr)
 			failed = append(failed, fmt.Errorf("incorrect leader assignment"))
 		}
+		fmt.Printf("Time took to verify connected leader matches: %v\n", time.Since(laTime))
 	}
 
 	cTime := time.Now()
@@ -103,7 +106,7 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 	} else {
 		passed = append(passed, msg)
 	}
-	fmt.Printf("Took %s to check connection count", time.Since(cTime))
+	fmt.Printf("Took took to check connection count %s.\n", time.Since(cTime))
 
 	return passed, failed
 }
@@ -163,6 +166,7 @@ func replicationLag(ctx context.Context, leader *pgx.Conn) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	passed := true
 	for rows.Next() {
 		var clientAddr net.IPNet
 		var replayLag pgtype.Interval
@@ -174,18 +178,19 @@ func replicationLag(ctx context.Context, leader *pgx.Conn) (string, error) {
 		var dur time.Duration
 		dur = time.Duration(replayLag.Microseconds)
 
+		note := fmt.Sprintf("%s is lagging %s", clientAddr.IP.String(), dur)
+		cases = append(cases, note)
+
 		if dur >= 3*time.Second {
-			note := fmt.Sprintf("%s is lagging behind %s", clientAddr.IP.String(), dur)
-			cases = append(cases, note)
+			passed = false
 		}
 	}
 
-	output := strings.Join(cases, "\n")
-	if len(cases) > 0 {
-		return "", fmt.Errorf(output)
+	if passed {
+		return strings.Join(cases, "\n"), nil
 	}
 
-	return output, nil
+	return "", fmt.Errorf(strings.Join(cases, "\n"))
 }
 
 func connectionCount(ctx context.Context, local *pgx.Conn) (string, error) {
