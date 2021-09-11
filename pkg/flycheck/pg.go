@@ -54,9 +54,7 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 		// Verify replication lag of connected standbys
 		msg, err = replicationLag(ctx, leaderConn)
 		if err != nil {
-			if err != pgx.ErrNoRows {
-				failed = append(failed, err)
-			}
+			failed = append(failed, err)
 		} else {
 			passed = append(passed, msg)
 		}
