@@ -99,14 +99,11 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 
 // PostgreSQLRole outputs current role
 func PostgreSQLRole(ctx context.Context, node *flypg.Node) (string, error) {
-	t := time.Now()
 	localConn, err := node.NewLocalConnection(ctx)
 	if err != nil {
 		return "offline", err
 	}
 	defer localConn.Close(ctx)
-
-	fmt.Printf("Took %v to open local connection.\n", time.Since(t))
 
 	var readonly string
 	err = localConn.QueryRow(ctx, "SHOW transaction_read_only").Scan(&readonly)
