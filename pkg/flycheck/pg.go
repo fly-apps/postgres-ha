@@ -17,51 +17,41 @@ import (
 func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, failed []error) ([]string, []error) {
 	var msg string
 
-	proxyTime := time.Now()
+	// Proxy connection should always point to the leader.
 	leaderConn, err := node.NewProxyConnection(ctx)
 	if err != nil {
 		err = fmt.Errorf("proxy: %v", err.Error())
 		return passed, append(failed, err)
 	}
 	defer leaderConn.Close(ctx)
-	fmt.Printf("Time took to open proxy connection %s.\n", time.Since(proxyTime))
 
 	// Resolve the leader address from the proxy connection.
-	lResolveTime := time.Now()
-	leaderAddr, err := resolveServerIp(ctx, leaderConn)
+	leaderAddr, err := resolveServerAddr(ctx, leaderConn)
 	if err != nil {
 		err = fmt.Errorf("failed to resolve leader address from proxy conn: %q", err.Error())
 		return passed, append(failed, err)
 	}
-	fmt.Printf("Time took to resolve leader connection %s.\n", time.Since(lResolveTime))
 
-	fmt.Printf("Leader IP: %s\n", leaderAddr)
-	fmt.Printf("%s == %s", leaderAddr, node.PrivateIP.String())
-
-	localTime := time.Now()
 	localConn, err := node.NewLocalConnection(ctx)
 	if err != nil {
 		err = fmt.Errorf("local: %v", err.Error())
 		return passed, append(failed, err)
 	}
 	defer localConn.Close(ctx)
-	fmt.Printf("Time took to open local connection %s.\n", time.Since(localTime))
 
 	isLeader := (leaderAddr == node.PrivateIP.String())
-	// Primary specific checks
+
+	// Leader specific checks
 	if isLeader {
-		// Verify leader is not readonly
-		rOnlyt := time.Now()
-		msg, err = connReadOnly(ctx, leaderConn, "leader", false)
+		// Verify that leader is writable.
+		msg, err = readOnlyCheck(ctx, leaderConn, "leader", false)
 		if err != nil {
 			failed = append(failed, err)
 		} else {
 			passed = append(passed, msg)
 		}
-		fmt.Printf("Time took to measure readonly %s\n", time.Since(rOnlyt))
 
-		// Replication lag checks
-		replTime := time.Now()
+		// Verify replication lag of connected standbys
 		msg, err = replicationLag(ctx, leaderConn)
 		if err != nil {
 			if err != pgx.ErrNoRows {
@@ -70,22 +60,19 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 		} else {
 			passed = append(passed, msg)
 		}
-		fmt.Printf("Time took to measure replication lag: %v\n", time.Since(replTime))
-
 	}
 
 	// Standby specific checks
 	if !isLeader {
-		sReadtime := time.Now()
-		msg, err = connReadOnly(ctx, localConn, "standby", true)
+		// Verify standby is readonly
+		msg, err = readOnlyCheck(ctx, localConn, "standby", true)
 		if err != nil {
 			failed = append(failed, err)
 		} else {
 			passed = append(passed, msg)
 		}
-		fmt.Printf("Time took to check readonly: %v\n", time.Since(sReadtime))
 
-		laTime := time.Now()
+		// Verify standby is subscribed to the expected leader
 		ldrAddr, err := resolvePrimaryFromStandby(ctx, localConn)
 		if err != nil {
 			failed = append(failed, fmt.Errorf("failed to resolve primary from local conn"))
@@ -93,20 +80,19 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 		if ldrAddr == leaderAddr {
 			passed = append(passed, fmt.Sprintf("connected to leader"))
 		} else {
-			fmt.Printf("Incorrect leader assignment: Leader: %s, Connected to: %s\n", leaderAddr, ldrAddr)
-			failed = append(failed, fmt.Errorf("incorrect leader assignment"))
+			msg = fmt.Sprintf("leader mismatch detected: current: %s, expected %s\n", leaderAddr, ldrAddr)
+			fmt.Println(msg)
+			failed = append(failed, fmt.Errorf(msg))
 		}
-		fmt.Printf("Time took to verify connected leader matches: %v\n", time.Since(laTime))
 	}
 
-	cTime := time.Now()
+	// Generic checks
 	msg, err = connectionCount(ctx, localConn)
 	if err != nil {
 		failed = append(failed, err)
 	} else {
 		passed = append(passed, msg)
 	}
-	fmt.Printf("Took took to check connection count %s.\n", time.Since(cTime))
 
 	return passed, failed
 }
@@ -135,7 +121,7 @@ func PostgreSQLRole(ctx context.Context, node *flypg.Node) (string, error) {
 	}
 }
 
-func connReadOnly(ctx context.Context, conn *pgx.Conn, name string, expected bool) (string, error) {
+func readOnlyCheck(ctx context.Context, conn *pgx.Conn, name string, expected bool) (string, error) {
 	var readonly string
 	err := conn.QueryRow(ctx, "SHOW transaction_read_only;").Scan(&readonly)
 	if err != nil {
@@ -226,6 +212,7 @@ func resolvePrimaryFromStandby(ctx context.Context, local *pgx.Conn) (string, er
 		}
 	}
 
+	// If we don't have any assigned primary, assume we are the primary.
 	if primaryConn == "" {
 		ip, err := privnet.PrivateIPv6()
 		if err != nil {
@@ -246,8 +233,8 @@ func resolvePrimaryFromStandby(ctx context.Context, local *pgx.Conn) (string, er
 	return connMap["host"], nil
 }
 
-// resolveServerIp takes a connection and will return the destination server address.
-func resolveServerIp(ctx context.Context, conn *pgx.Conn) (string, error) {
+// resolveServerAddr takes a connection and will return the destination server address.
+func resolveServerAddr(ctx context.Context, conn *pgx.Conn) (string, error) {
 	rows, err := conn.Query(context.TODO(), "SELECT inet_server_addr();")
 	if err != nil {
 		return "", err
