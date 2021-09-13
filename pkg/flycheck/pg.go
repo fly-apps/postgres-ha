@@ -11,6 +11,7 @@ import (
 	"github.com/fly-examples/postgres-ha/pkg/privnet"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
+	"github.com/pkg/errors"
 )
 
 // CheckPostgreSQL health, replication, etc
@@ -21,30 +22,28 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 	leaderConn, err := node.NewProxyConnection(ctx)
 	if err != nil {
 		err = fmt.Errorf("proxy: %v", err.Error())
-		return passed, append(failed, err)
+		return passed, append(failed, errors.Wrap(err, "failed to establish proxy conn"))
 	}
 	defer leaderConn.Close(ctx)
+
+	localConn, err := node.NewLocalConnection(ctx)
+	if err != nil {
+		return passed, append(failed, errors.Wrap(err, "failed to establish local conn"))
+	}
+	defer localConn.Close(ctx)
 
 	// Resolve the leader address from the proxy connection.
 	leaderAddr, err := resolveServerAddr(ctx, leaderConn)
 	if err != nil {
-		err = fmt.Errorf("failed to resolve leader address from proxy conn: %q", err.Error())
-		return passed, append(failed, err)
+		return passed, append(failed, errors.Wrap(err, "failed to resolve leader addr"))
 	}
-
-	localConn, err := node.NewLocalConnection(ctx)
-	if err != nil {
-		err = fmt.Errorf("local: %v", err.Error())
-		return passed, append(failed, err)
-	}
-	defer localConn.Close(ctx)
 
 	isLeader := (leaderAddr == node.PrivateIP.String())
 
 	// Leader specific checks
 	if isLeader {
 		// Verify that leader is writable.
-		msg, err = readOnlyCheck(ctx, leaderConn, "leader", false)
+		msg, err = transactionReadOnly(ctx, leaderConn, "off")
 		if err != nil {
 			failed = append(failed, err)
 		} else {
@@ -63,7 +62,7 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 	// Standby specific checks
 	if !isLeader {
 		// Verify standby is readonly
-		msg, err = readOnlyCheck(ctx, localConn, "standby", true)
+		msg, err = transactionReadOnly(ctx, localConn, "on")
 		if err != nil {
 			failed = append(failed, err)
 		} else {
@@ -95,48 +94,19 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 	return passed, failed
 }
 
-// PostgreSQLRole outputs current role
-func PostgreSQLRole(ctx context.Context, node *flypg.Node) (string, error) {
-	localConn, err := node.NewLocalConnection(ctx)
-	if err != nil {
-		return "offline", err
-	}
-	defer localConn.Close(ctx)
-
-	var readonly string
-	err = localConn.QueryRow(ctx, "SHOW transaction_read_only").Scan(&readonly)
-	if err != nil {
-		return "offline", err
-	}
-
-	if readonly == "on" {
-		return "replica", nil
-	} else {
-		return "leader", nil
-	}
-}
-
-func readOnlyCheck(ctx context.Context, conn *pgx.Conn, name string, expected bool) (string, error) {
+func transactionReadOnly(ctx context.Context, conn *pgx.Conn, expected string) (string, error) {
 	var readonly string
 	err := conn.QueryRow(ctx, "SHOW transaction_read_only;").Scan(&readonly)
 	if err != nil {
-		return "", fmt.Errorf("%s check: %v", name, err)
+		return "", fmt.Errorf("readOnlyMode: %v", err)
 	}
 
-	if readonly == "on" {
-		if expected {
-			return fmt.Sprintf("%s check: readonly", name), nil
-		} else {
-			return "", fmt.Errorf("%s check: readonly", name)
-		}
+	if readonly == expected {
+		return fmt.Sprintf("readOnlyMode: %s", readonly), nil
+	} else {
+		return "", fmt.Errorf("readOnlyMode: %s", readonly)
 	}
-	if readonly == "off" {
-		if expected {
-			return "", fmt.Errorf("%s check: accepting writes", name)
-		} else {
-			return fmt.Sprintf("%s check: accepting writes", name), nil
-		}
-	}
+
 	return "", fmt.Errorf("unable to resolve readonly state")
 }
 
@@ -167,11 +137,13 @@ func replicationLag(ctx context.Context, leader *pgx.Conn) (string, error) {
 		}
 	}
 
+	output := strings.Join(cases, "\n")
+
 	if passed {
-		return strings.Join(cases, "\n"), nil
+		return output, nil
 	}
 
-	return "", fmt.Errorf(strings.Join(cases, "\n"))
+	return "", fmt.Errorf(output)
 }
 
 func connectionCount(ctx context.Context, local *pgx.Conn) (string, error) {
@@ -183,7 +155,6 @@ func connectionCount(ctx context.Context, local *pgx.Conn) (string, error) {
 	var used, reserved, max int
 
 	err := local.QueryRow(ctx, sql).Scan(&used, &reserved, &max)
-
 	if err != nil {
 		return "", fmt.Errorf("connections: %v", err)
 	}
