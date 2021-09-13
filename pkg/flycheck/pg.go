@@ -50,12 +50,19 @@ func CheckPostgreSQL(ctx context.Context, node *flypg.Node, passed []string, fai
 			passed = append(passed, msg)
 		}
 
-		// Verify replication lag of connected standbys
-		msg, err = replicationLag(ctx, leaderConn)
+		entries, err := replicationEntries(ctx, leaderConn)
 		if err != nil {
-			failed = append(failed, err)
+			failed = append(failed, errors.Wrap(err, "failed to query replication lag"))
 		} else {
-			passed = append(passed, msg)
+			for _, entry := range entries {
+				msg := fmt.Sprintf("%s is lagging %s", entry.Client, entry.ReplayLag)
+
+				if entry.ReplayLag >= 3*time.Second {
+					failed = append(failed, fmt.Errorf(msg))
+				} else {
+					passed = append(passed, msg)
+				}
+			}
 		}
 	}
 
@@ -103,47 +110,40 @@ func transactionReadOnly(ctx context.Context, conn *pgx.Conn, expected string) (
 
 	if readonly == expected {
 		return fmt.Sprintf("readOnlyMode: %s", readonly), nil
-	} else {
-		return "", fmt.Errorf("readOnlyMode: %s", readonly)
 	}
+	return "", fmt.Errorf("readOnlyMode: %s", readonly)
 
-	return "", fmt.Errorf("unable to resolve readonly state")
 }
 
-func replicationLag(ctx context.Context, leader *pgx.Conn) (string, error) {
-	var cases []string
+type ReplicationClient struct {
+	Client    string
+	ReplayLag time.Duration
+}
+
+func replicationEntries(ctx context.Context, leader *pgx.Conn) ([]ReplicationClient, error) {
 	sql := `select client_addr, replay_lag from pg_stat_replication;`
 	rows, err := leader.Query(ctx, sql)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	passed := true
+	var entries []ReplicationClient
 	for rows.Next() {
 		var clientAddr net.IPNet
 		var replayLag pgtype.Interval
 		err = rows.Scan(&clientAddr, &replayLag)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-
 		var dur time.Duration
 		dur = time.Duration(replayLag.Microseconds)
 
-		note := fmt.Sprintf("%s is lagging %s", clientAddr.IP.String(), dur)
-		cases = append(cases, note)
-
-		if dur >= 3*time.Second {
-			passed = false
+		entry := ReplicationClient{
+			Client:    clientAddr.IP.String(),
+			ReplayLag: dur,
 		}
+		entries = append(entries, entry)
 	}
-
-	output := strings.Join(cases, "\n")
-
-	if passed {
-		return output, nil
-	}
-
-	return "", fmt.Errorf(output)
+	return entries, nil
 }
 
 func connectionCount(ctx context.Context, local *pgx.Conn) (string, error) {
