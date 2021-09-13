@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg"
+	"github.com/fly-examples/postgres-ha/pkg/check"
+	suite "github.com/fly-examples/postgres-ha/pkg/check"
 )
 
 const Port = 5500
@@ -23,69 +23,81 @@ func StartCheckListener() {
 }
 
 func runVMChecks(w http.ResponseWriter, r *http.Request) {
-	var passed []string
-	var failed []error
+	ctx, cancel := context.WithTimeout(r.Context(), (5 * time.Second))
+	defer cancel()
+	suite := &suite.CheckSuite{Name: "VM"}
+	suite = CheckVM(suite)
 
-	passed, failed = CheckVM(passed, failed)
-	resp := buildPassFailResp(passed, failed)
-	if len(failed) > 0 {
-		handleError(w, fmt.Errorf(resp))
-		return
+	go func(ctx context.Context) {
+		suite.Process(ctx)
+		cancel()
+	}(ctx)
+
+	select {
+	case <-ctx.Done():
+		handleCheckResponse(w, suite, false)
 	}
-
-	json.NewEncoder(w).Encode(resp)
 }
 
 func runPGChecks(w http.ResponseWriter, r *http.Request) {
-	node, err := flypg.NewNode()
-	if err != nil {
-		handleError(w, err)
-		return
-	}
-
-	var passed []string
-	var failed []error
-
-	ctx, cancel := context.WithTimeout(context.TODO(), (time.Second * 10))
+	ctx, cancel := context.WithTimeout(r.Context(), (5 * time.Second))
 	defer cancel()
-	passed, failed = CheckPostgreSQL(ctx, node, passed, failed)
-	resp := buildPassFailResp(passed, failed)
-
-	if len(failed) > 0 {
-		handleError(w, fmt.Errorf(resp))
-		return
+	suite := &suite.CheckSuite{Name: "PG"}
+	suite, err := CheckPostgreSQL(ctx, suite)
+	if err != nil {
+		suite.ErrOnSetup = err
+		cancel()
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	go func() {
+		suite.Process(ctx)
+		cancel()
+	}()
+
+	select {
+	case <-ctx.Done():
+		handleCheckResponse(w, suite, false)
+	}
 }
 
 func runRoleCheck(w http.ResponseWriter, r *http.Request) {
-	node, err := flypg.NewNode()
+	ctx, cancel := context.WithTimeout(r.Context(), (time.Second * 5))
+	defer cancel()
+
+	suite := &suite.CheckSuite{Name: "Role"}
+	suite, err := PostgreSQLRole(ctx, suite)
 	if err != nil {
-		handleError(w, err)
-		return
+		suite.ErrOnSetup = err
+		cancel()
 	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), (time.Second * 10))
-	defer cancel()
-	role, err := PostgreSQLRole(ctx, node)
-	if err != nil {
-		handleError(w, err)
-		return
+	go func() {
+		suite.Process(ctx)
+		cancel()
+	}()
+
+	select {
+	case <-ctx.Done():
+		handleCheckResponse(w, suite, true)
 	}
-	json.NewEncoder(w).Encode(role)
 }
 
-func buildPassFailResp(passed []string, failed []error) string {
-	var resp []string
-	for _, v := range failed {
-		resp = append(resp, fmt.Sprintf("[✗] %s", v))
+func handleCheckResponse(w http.ResponseWriter, suite *check.CheckSuite, raw bool) {
+	if suite.ErrOnSetup != nil {
+		handleError(w, suite.ErrOnSetup)
+		return
 	}
-	for _, v := range passed {
-		resp = append(resp, fmt.Sprintf("[✓] %s", v))
+	var result string
+	if raw {
+		result = suite.RawResult()
+	} else {
+		result = suite.Result()
 	}
-
-	return strings.Join(resp, "\n")
+	if !suite.Passed() {
+		handleError(w, fmt.Errorf(result))
+		return
+	}
+	json.NewEncoder(w).Encode(result)
 }
 
 func handleError(w http.ResponseWriter, err error) {

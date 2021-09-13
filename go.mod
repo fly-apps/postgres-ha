@@ -3,6 +3,7 @@ module github.com/fly-examples/postgres-ha
 go 1.16
 
 require (
+	github.com/jackc/pgtype v1.6.2 // indirect
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/pkg/errors v0.8.1

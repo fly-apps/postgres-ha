@@ -8,43 +8,37 @@ import (
 	"runtime"
 	"strconv"
 	"syscall"
+	"time"
+
+	"github.com/fly-examples/postgres-ha/pkg/check"
+	chk "github.com/fly-examples/postgres-ha/pkg/check"
 )
 
 // CheckVM for system / disk checks
-func CheckVM(passed []string, failed []error) ([]string, []error) {
+func CheckVM(checks *chk.CheckSuite) *chk.CheckSuite {
 
-	msg, err := checkDisk("/data/")
-	if err != nil {
-		failed = append(failed, err)
-	} else {
-		passed = append(passed, msg)
-	}
+	checks.AddCheck("checkDisk", func() (string, error) {
+		return checkDisk("/data/")
+	})
 
-	msg, err = checkLoad()
-	if err != nil {
-		failed = append(failed, err)
-	} else {
-		passed = append(passed, msg)
-	}
+	checks.AddCheck("checkLoad", func() (string, error) {
+		return checkLoad()
+	})
 
 	pressureNames := []string{"memory", "cpu", "io"}
-
-	for _, name := range pressureNames {
-		msg, err = checkPressure(name)
-		if err != nil {
-			failed = append(failed, err)
-		} else {
-			passed = append(passed, msg)
-		}
+	for _, n := range pressureNames {
+		name := n
+		checks.AddCheck(name, func() (string, error) {
+			return checkPressure(name)
+		})
 	}
 
-	return passed, failed
+	return checks
 }
 
 func checkPressure(name string) (string, error) {
 	var avg10, avg60, avg300, counter float64
 	//var rest string
-
 	raw, err := ioutil.ReadFile("/proc/pressure/" + name)
 	if err != nil {
 		return "", err
@@ -56,23 +50,34 @@ func checkPressure(name string) (string, error) {
 		&avg10, &avg60, &avg300, &counter,
 	)
 
+	avg10Dur, err := pressureToDuration(avg10, 10.0)
+	if err != nil {
+		return "", err
+	}
+	avg60Dur, err := pressureToDuration(avg60, 60.0)
 	if err != nil {
 		return "", err
 	}
 
-	if avg10 > 5 {
-		return "", fmt.Errorf("system spent %.1f of the last 10 seconds waiting for %s", avg10, name)
+	avg300Dur, err := pressureToDuration(avg300, 300.0)
+	if err != nil {
+		return "", err
+	}
+
+	// Trigger failure if pressure exceeds 10 percent.
+	if avg10 > 10 {
+		return "", fmt.Errorf("system spent %s of the last 10 seconds waiting on %s", check.RoundDuration(avg10Dur, 2), name)
 	}
 
 	if avg60 > 10 {
-		return "", fmt.Errorf("system spent %.1f of the last 60 seconds waiting for %s", avg60, name)
+		return "", fmt.Errorf("system spent %s of the last 60 seconds waiting on %s", check.RoundDuration(avg60Dur, 2), name)
 	}
 
-	if avg300 > 50 {
-		return "", fmt.Errorf("system spent %.1f of the last 300 seconds waiting for %s", avg300, name)
+	if avg300 > 10 {
+		return "", fmt.Errorf("system spent %s of the last 300 seconds waiting on %s", check.RoundDuration(avg300Dur, 2), name)
 	}
 
-	return fmt.Sprintf("%s: %.1fs waiting over the last 60s", name, avg60), nil
+	return fmt.Sprintf("system spent %s of the last 60s waiting on %s", check.RoundDuration(avg60Dur, 2), name), nil
 }
 
 func checkLoad() (string, error) {
@@ -153,4 +158,10 @@ func dataSize(size uint64) string {
 	getSize := round(math.Pow(1024, base-math.Floor(base)), .5, 2)
 	getSuffix := suffixes[int(math.Floor(base))]
 	return fmt.Sprint(strconv.FormatFloat(getSize, 'f', -1, 64) + " " + string(getSuffix))
+}
+
+func pressureToDuration(pressure float64, base float64) (time.Duration, error) {
+	seconds := base * (pressure / 100)
+	secondsStr := fmt.Sprintf("%fs", seconds)
+	return time.ParseDuration(secondsStr)
 }
