@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fly-examples/postgres-ha/pkg/check"
 	suite "github.com/fly-examples/postgres-ha/pkg/check"
 )
 
@@ -82,7 +81,7 @@ func runRoleCheck(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleCheckResponse(w http.ResponseWriter, suite *check.CheckSuite, raw bool) {
+func handleCheckResponse(w http.ResponseWriter, suite *suite.CheckSuite, raw bool) {
 	if suite.ErrOnSetup != nil {
 		handleError(w, suite.ErrOnSetup)
 		return

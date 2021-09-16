@@ -153,14 +153,6 @@ func (n *Node) IsPrimaryRegion() bool {
 	return n.Region == n.PrimaryRegion
 }
 
-func (n *Node) NewConnection(ctx context.Context, host string) (*pgx.Conn, error) {
-	conn, err := openConnection(ctx, []string{host}, "read-write", n.SUCredentials)
-	if err != nil {
-		return nil, fmt.Errorf("%s, ip: %s", err, host)
-	}
-	return conn, err
-}
-
 func (n *Node) NewLeaderConnection(ctx context.Context) (*pgx.Conn, error) {
 	addrs, err := privnet.AllPeers(ctx, n.AppName)
 	if err != nil {
