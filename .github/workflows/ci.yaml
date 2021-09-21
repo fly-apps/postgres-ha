@@ -38,8 +38,10 @@ jobs:
             VERSION=${{ steps.get-latest-tag.outputs.tag }}
           context: .
           file: ./Dockerfile
-          load: true
-          tags: flyio/postgres-ha:ci-test-12,flyio/postgres-ha:ci-test-12.5
+          push: true
+          tags: |
+            flyio/postgres-ha:ci-test-12
+            flyio/postgres-ha:ci-test-12.5
       -
         name: Build and push Postgres 13
         id: pg_13_docker_build
@@ -50,8 +52,10 @@ jobs:
             VERSION=${{ steps.get-latest-tag.outputs.tag }}      
           context: .
           file: ./Dockerfile
-          load: true
-          tags: flyio/postgres-ha:ci-test-13,flyio/postgres-ha:ci-test-13.4
+          push: true
+          tags: |
+            flyio/postgres-ha:ci-test-13
+            flyio/postgres-ha:ci-test-13.4
       -
         name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
