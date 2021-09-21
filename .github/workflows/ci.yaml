@@ -22,10 +22,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - uses: actions/checkout@v2
-      - uses: actions-ecosystem/action-get-latest-tag@v1
-        id: get-latest-tag
         with:
-          semver_only: true
+          fetch-depth: 0
+      - 
+        name: "Fetch latest tag"
+        id: get-latest-tag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
       -
         name: Build and push Postgres 12
         id: pg12_docker_build
