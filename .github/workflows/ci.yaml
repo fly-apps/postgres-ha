@@ -27,7 +27,7 @@ jobs:
           semver_only: true
       -
         name: Build and push Postgres 12
-        id: docker_build
+        id: pg12_docker_build
         uses: docker/build-push-action@v2
         with:
           build-args: |
@@ -39,7 +39,7 @@ jobs:
           tags: flyio/postgres-ha:ci-test-12,flyio/postgres-ha:ci-test-12.5
       -
         name: Build and push Postgres 13
-        id: docker_build
+        id: pg_13_docker_build
         uses: docker/build-push-action@v2
         with:
           build-args: |
