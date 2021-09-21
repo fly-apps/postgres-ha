@@ -1,34 +1,54 @@
-name: ci
+name: Release
 
-# on:
-#   workflow_dispatch:
-#   push:
-#     branches:
-#     - main
+on:
+  create:
 
-# jobs:
-#   main:
-#     runs-on: ubuntu-latest
-#     steps:
-#       -
-#         name: Set up QEMU
-#         uses: docker/setup-qemu-action@v1
-#       -
-#         name: Set up Docker Buildx
-#         uses: docker/setup-buildx-action@v1
-#       -
-#         name: Login to DockerHub
-#         uses: docker/login-action@v1 
-#         with:
-#           username: ${{ secrets.DOCKERHUB_USERNAME }}
-#           password: ${{ secrets.DOCKERHUB_TOKEN }}
-#       -
-#         name: Build and push
-#         id: docker_build
-#         uses: docker/build-push-action@v2
-#         with:
-#           push: true
-#           tags: flyio/postgres-ha:latest
-#       -
-#         name: Image digest
-#         run: echo ${{ steps.docker_build.outputs.digest }}
+jobs:
+  release:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      -
+        name: Login to DockerHub
+        uses: docker/login-action@v1 
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: actions/checkout@v2
+      - uses: actions-ecosystem/action-get-latest-tag@v1
+        id: get-latest-tag
+        with:
+          semver_only: true
+      -
+        name: Build and push Postgres 12
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          build-args: |
+            PG_VERSION=12.5
+            VERSION=${{ steps.get-latest-tag.outputs.tag }}
+          context: .
+          file: ./Dockerfile
+          load: true
+          tags: flyio/postgres-ha:ci-test-12,flyio/postgres-ha:ci-test-12.5
+      -
+        name: Build and push Postgres 13
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          build-args: |
+            PG_VERSION=13.4
+            VERSION=${{ steps.get-latest-tag.outputs.tag }}      
+          context: .
+          file: ./Dockerfile
+          load: true
+          tags: flyio/postgres-ha:ci-test-13,flyio/postgres-ha:ci-test-13.4
+      -
+        name: Image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}
