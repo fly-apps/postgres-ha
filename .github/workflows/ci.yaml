@@ -39,8 +39,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            flyio/postgres-ha:12
-            flyio/postgres-ha:12.5
+            flyio/postgres:12
+            flyio/postgres:12.5
       -
         name: Build and push Postgres 13
         id: pg_13_docker_build
@@ -53,8 +53,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            flyio/postgres-ha:13
-            flyio/postgres-ha:13.4
+            flyio/postgres:13
+            flyio/postgres:13.4
       -
         name: Image digest
         run: echo ${{ steps.pg_13_docker_build.outputs.digest }}
