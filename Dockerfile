@@ -17,9 +17,9 @@ FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 FROM postgres:${PG_VERSION}
 ARG VERSION 
 
-LABEL fly.io.app_role=postgres_cluster
-LABEL fly.io.version=${VERSION}
-LABEL fly.io.pg-version=${PG_VERSION}
+LABEL fly.app_role=postgres_cluster
+LABEL fly.version=${VERSION}
+LABEL fly.pg-version=${PG_VERSION}
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ca-certificates curl bash dnsutils vim-tiny procps jq \
