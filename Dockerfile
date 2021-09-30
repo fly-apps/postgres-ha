@@ -10,7 +10,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/flyadmin ./cmd/flyadmin
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/start ./cmd/start
 
-FROM flyio/stolon:cab0fc5  as stolon
+FROM flyio/stolon:b6b9aaf  as stolon
 
 FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 
