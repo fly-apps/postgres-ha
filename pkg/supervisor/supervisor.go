@@ -12,13 +12,13 @@ import (
 )
 
 type Supervisor struct {
-	name    string
-	output  *multiOutput
-	procs   []*process
-	procWg  sync.WaitGroup
-	done    chan bool
-	stop    chan struct{}
-	timeout time.Duration
+	name     string
+	output   *multiOutput
+	procs    []*process
+	procWg   sync.WaitGroup
+	stop     chan struct{}
+	stopping bool
+	timeout  time.Duration
 }
 
 func New(name string, timeout time.Duration) *Supervisor {
@@ -60,17 +60,23 @@ func (h *Supervisor) runProcess(proc *process) {
 
 	go func() {
 		defer h.procWg.Done()
-		defer func() { h.done <- true }()
 
-		proc.Run()
+		for {
+			proc.Run()
+			proc.writeLine([]byte("exited"))
+
+			if h.stopping || !proc.restart {
+				break
+			}
+
+			if proc.restartCount > proc.maxRestarts {
+				proc.writeLine([]byte("restart attempts exhausted, failing"))
+				break
+			}
+			proc.restartCount++
+			proc.writeLine([]byte(fmt.Sprintf("restarting, attempt %d", proc.restartCount)))
+		}
 	}()
-}
-
-func (h *Supervisor) waitForDoneOrInterrupt() {
-	select {
-	case <-h.done:
-	case <-h.stop:
-	}
 }
 
 func (h *Supervisor) waitForTimeoutOrInterrupt() {
@@ -80,10 +86,11 @@ func (h *Supervisor) waitForTimeoutOrInterrupt() {
 	}
 }
 
-func (h *Supervisor) waitForExit() {
-	h.waitForDoneOrInterrupt()
+func (h *Supervisor) WaitForExit() {
+	<-h.stop
 
 	fmt.Println("supervisor stopping")
+	h.stopping = true
 
 	for _, proc := range h.procs {
 		go proc.Interrupt()
@@ -101,14 +108,13 @@ func (h *Supervisor) StartHttpListener() {
 }
 
 func (h *Supervisor) Run() {
-	h.done = make(chan bool, len(h.procs))
 	h.stop = make(chan struct{})
 
 	for _, proc := range h.procs {
 		h.runProcess(proc)
 	}
 
-	go h.waitForExit()
+	go h.WaitForExit()
 
 	h.procWg.Wait()
 }

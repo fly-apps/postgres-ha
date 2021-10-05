@@ -5,14 +5,19 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
 type process struct {
 	*exec.Cmd
-	name       string
-	color      int
-	output     *multiOutput
-	stopSignal os.Signal
+	name         string
+	color        int
+	output       *multiOutput
+	stopSignal   os.Signal
+	restart      bool
+	restartDelay time.Duration
+	maxRestarts  int
+	restartCount int
 }
 
 type Opt func(*process)
@@ -34,6 +39,14 @@ func WithStopSignal(sig os.Signal) Opt {
 func WithRootDir(dir string) Opt {
 	return func(proc *process) {
 		proc.Dir = dir
+	}
+}
+
+func WithRestart(maxRestarts int, delay time.Duration) Opt {
+	return func(proc *process) {
+		proc.restart = true
+		proc.maxRestarts = maxRestarts
+		proc.restartDelay = delay
 	}
 }
 
