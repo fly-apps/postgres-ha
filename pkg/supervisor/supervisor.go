@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fly-examples/postgres-ha/pkg/flycheck"
+	"github.com/google/shlex"
 )
 
 type Supervisor struct {
@@ -32,7 +33,7 @@ func New(name string, timeout time.Duration) *Supervisor {
 
 var colors = []int{2, 3, 4, 5, 6, 42, 130, 103, 129, 108}
 
-func (h *Supervisor) AddProcess(name string, command string, args []string, opts ...Opt) {
+func (h *Supervisor) AddProcess(name string, command string, opts ...Opt) {
 	proc := &process{
 		name:       name,
 		color:      colors[len(h.procs)%len(colors)],
@@ -41,9 +42,11 @@ func (h *Supervisor) AddProcess(name string, command string, args []string, opts
 		env:        os.Environ(),
 	}
 
+	parsedCmd, err := shlex.Split(command)
+	fatalOnErr(err)
+
 	proc.f = func() *exec.Cmd {
-		cmd := exec.Command(command, args...)
-		// cmd := exec.Command("/bin/sh", "-c", "gosu stolon "+command)
+		cmd := exec.Command(parsedCmd[0], parsedCmd[1:]...)
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
 		// cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uid, Gid: gid}
 

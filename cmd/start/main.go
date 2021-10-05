@@ -57,6 +57,10 @@ func main() {
 		panic(err)
 	}
 
+	stolonCmd := func(cmd string) string {
+		return fmt.Sprintf("/bin/sh -c gosu stolon %s", cmd)
+	}
+
 	go func() {
 		t := time.NewTicker(1 * time.Second)
 		defer t.Stop()
@@ -121,7 +125,7 @@ func main() {
 		keeperEnv["STKEEPER_CAN_BE_SYNCHRONOUS_REPLICA"] = "false"
 	}
 
-	svisor.AddProcess("keeper", "stolon-keeper", supervisor.WithEnv(keeperEnv))
+	svisor.AddProcess("keeper", stolonCmd("stolon-keeper"), supervisor.WithEnv(keeperEnv))
 
 	sentinelEnv := map[string]string{
 		"STSENTINEL_DATA_DIR":             node.DataDir,
@@ -133,7 +137,7 @@ func main() {
 		"STSENTINEL_STORE_NODE":           node.StoreNode,
 	}
 
-	svisor.AddProcess("sentinel", "stolon-sentinel", supervisor.WithEnv(sentinelEnv))
+	svisor.AddProcess("sentinel", stolonCmd("stolon-sentinel"), supervisor.WithEnv(sentinelEnv))
 
 	proxyEnv := map[string]string{
 		"STPROXY_LISTEN_ADDRESS": net.ParseIP("0.0.0.0").String(),
@@ -145,7 +149,7 @@ func main() {
 		"STPROXY_STORE_NODE":     node.StoreNode,
 	}
 
-	svisor.AddProcess("proxy", "stolon-proxy", supervisor.WithEnv(proxyEnv))
+	svisor.AddProcess("proxy", stolonCmd("stolon-proxy"), supervisor.WithEnv(proxyEnv))
 
 	exporterEnv := map[string]string{
 		"DATA_SOURCE_URI":                      fmt.Sprintf("[%s]:%d/postgres?sslmode=disable", node.PrivateIP, node.PGPort),
