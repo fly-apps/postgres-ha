@@ -124,7 +124,7 @@ func main() {
 		keeperEnv["STKEEPER_CAN_BE_SYNCHRONOUS_REPLICA"] = "false"
 	}
 
-	svisor.AddProcess("keeper", stolonCmd("stolon-keeper"), supervisor.WithEnv(keeperEnv))
+	svisor.AddProcess("keeper", stolonCmd("stolon-keeper"), supervisor.WithEnv(keeperEnv), supervisor.WithRestart(10, 10*time.Second))
 
 	sentinelEnv := map[string]string{
 		"STSENTINEL_DATA_DIR":             node.DataDir,
@@ -136,7 +136,7 @@ func main() {
 		"STSENTINEL_STORE_NODE":           node.StoreNode,
 	}
 
-	svisor.AddProcess("sentinel", stolonCmd("stolon-sentinel"), supervisor.WithEnv(sentinelEnv))
+	svisor.AddProcess("sentinel", stolonCmd("stolon-sentinel"), supervisor.WithEnv(sentinelEnv), supervisor.WithRestart(0, 3*time.Second))
 
 	proxyEnv := map[string]string{
 		"STPROXY_LISTEN_ADDRESS": net.ParseIP("0.0.0.0").String(),
@@ -148,7 +148,7 @@ func main() {
 		"STPROXY_STORE_NODE":     node.StoreNode,
 	}
 
-	svisor.AddProcess("proxy", stolonCmd("stolon-proxy"), supervisor.WithEnv(proxyEnv))
+	svisor.AddProcess("proxy", stolonCmd("stolon-proxy"), supervisor.WithEnv(proxyEnv), supervisor.WithRestart(0, 3*time.Second))
 
 	exporterEnv := map[string]string{
 		"DATA_SOURCE_URI":                      fmt.Sprintf("[%s]:%d/postgres?sslmode=disable", node.PrivateIP, node.PGPort),
@@ -160,7 +160,7 @@ func main() {
 		"PG_EXPORTER_EXTEND_QUERY_PATH":        "/fly/queries.yaml",
 	}
 
-	svisor.AddProcess("exporter", "postgres_exporter", supervisor.WithEnv(exporterEnv))
+	svisor.AddProcess("exporter", "postgres_exporter", supervisor.WithEnv(exporterEnv), supervisor.WithRestart(0, 1*time.Second))
 
 	if err := flypg.InitConfig("/fly/cluster-spec.json"); err != nil {
 		panic(err)
