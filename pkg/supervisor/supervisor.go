@@ -16,6 +16,7 @@ type Supervisor struct {
 	output   *multiOutput
 	procs    []*process
 	procWg   sync.WaitGroup
+	crash    chan struct{}
 	stop     chan struct{}
 	stopping bool
 	timeout  time.Duration
@@ -31,20 +32,25 @@ func New(name string, timeout time.Duration) *Supervisor {
 
 var colors = []int{2, 3, 4, 5, 6, 42, 130, 103, 129, 108}
 
-func (h *Supervisor) AddProcess(name string, command string, opts ...Opt) {
-	cmd := exec.Command("/bin/sh", "-c", "gosu stolon "+command)
-	// cmd.SysProcAttr = &syscall.SysProcAttr{}
-	// cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uid, Gid: gid}
-
+func (h *Supervisor) AddProcess(name string, command string, args []string, opts ...Opt) {
 	proc := &process{
 		name:       name,
-		Cmd:        cmd,
 		color:      colors[len(h.procs)%len(colors)],
 		output:     h.output,
 		stopSignal: syscall.SIGINT,
+		env:        os.Environ(),
 	}
 
-	proc.Env = os.Environ()
+	proc.f = func() *exec.Cmd {
+		cmd := exec.Command(command, args...)
+		// cmd := exec.Command("/bin/sh", "-c", "gosu stolon "+command)
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+		// cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uid, Gid: gid}
+
+		cmd.Env = proc.env
+
+		return cmd
+	}
 
 	for _, opt := range opts {
 		opt(proc)
@@ -61,22 +67,45 @@ func (h *Supervisor) runProcess(proc *process) {
 	go func() {
 		defer h.procWg.Done()
 
+		restarts := 0
+
 		for {
 			proc.Run()
-			proc.writeLine([]byte("exited"))
 
-			if h.stopping || !proc.restart {
+			// supervisor is stopping, exit
+			if h.stopping {
 				break
 			}
 
-			if proc.restartCount > proc.maxRestarts {
-				proc.writeLine([]byte("restart attempts exhausted, failing"))
+			// process is done, exit
+			if !proc.restart {
+				proc.writeLine([]byte("done"))
 				break
 			}
-			proc.restartCount++
-			proc.writeLine([]byte(fmt.Sprintf("restarting, attempt %d", proc.restartCount)))
+
+			// process restart limit reached, crash supervisor
+			if proc.maxRestarts > 0 && restarts >= proc.maxRestarts {
+				proc.writeLine([]byte("restart attempts exhausted, crashing"))
+				h.crash <- struct{}{}
+				break
+			}
+
+			restarts++
+			if proc.restartDelay > 0 {
+				proc.writeLine([]byte(fmt.Sprintf("restarting in %s", proc.restartDelay)))
+				time.Sleep(proc.restartDelay)
+			}
+
+			proc.writeLine([]byte(fmt.Sprintf("restarting [attempt %d]", restarts)))
 		}
 	}()
+}
+
+func (h *Supervisor) waitForCrashOrInterrupt() {
+	select {
+	case <-h.crash:
+	case <-h.stop:
+	}
 }
 
 func (h *Supervisor) waitForTimeoutOrInterrupt() {
@@ -86,8 +115,8 @@ func (h *Supervisor) waitForTimeoutOrInterrupt() {
 	}
 }
 
-func (h *Supervisor) WaitForExit() {
-	<-h.stop
+func (h *Supervisor) waitForExit() {
+	h.waitForCrashOrInterrupt()
 
 	fmt.Println("supervisor stopping")
 	h.stopping = true
@@ -108,17 +137,22 @@ func (h *Supervisor) StartHttpListener() {
 }
 
 func (h *Supervisor) Run() {
+	h.crash = make(chan struct{}, len(h.procs))
 	h.stop = make(chan struct{})
 
 	for _, proc := range h.procs {
 		h.runProcess(proc)
 	}
 
-	go h.WaitForExit()
+	go h.waitForExit()
 
 	h.procWg.Wait()
 }
 
 func (h *Supervisor) Stop() {
 	h.stop <- struct{}{}
+}
+
+func (h *Supervisor) Wait() {
+	h.procWg.Wait()
 }

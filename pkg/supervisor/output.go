@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"syscall"
 
 	"github.com/pkg/term/termios"
 )
@@ -29,10 +28,11 @@ func (m *multiOutput) openPipe(proc *process) (pipe *ptyPipe) {
 	pipe.pty, pipe.tty, err = termios.Pty()
 	fatalOnErr(err)
 
-	proc.Stdout = pipe.tty
-	proc.Stderr = pipe.tty
-	proc.Stdin = pipe.tty
-	proc.SysProcAttr = &syscall.SysProcAttr{Setctty: true, Setsid: true}
+	proc.cmd.Stdout = pipe.tty
+	proc.cmd.Stderr = pipe.tty
+	proc.cmd.Stdin = pipe.tty
+	proc.cmd.SysProcAttr.Setctty = true
+	proc.cmd.SysProcAttr.Setsid = true
 
 	return
 }
