@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"os/signal"
 	"os/user"
 	"path/filepath"
 	"strconv"
@@ -167,17 +166,14 @@ func main() {
 		panic(err)
 	}
 
-	sigch := make(chan os.Signal)
-	signal.Notify(sigch, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigch
-		fmt.Println("Got interrupt, stopping")
-		svisor.Stop()
-	}()
+	svisor.StopOnSignal(syscall.SIGINT, syscall.SIGTERM)
 
 	svisor.StartHttpListener()
-	svisor.Run()
+	err = svisor.Run()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
 func writeStolonctlEnvFile(n *flypg.Node, filename string) {

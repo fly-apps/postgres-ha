@@ -19,10 +19,11 @@ type process struct {
 	restartDelay time.Duration
 	maxRestarts  int
 
-	f   cmdFactory
-	dir string
-	env []string
-	cmd *exec.Cmd
+	f       cmdFactory
+	running bool
+	dir     string
+	env     []string
+	cmd     *exec.Cmd
 }
 
 type Opt func(*process)
@@ -47,10 +48,12 @@ func WithRootDir(dir string) Opt {
 	}
 }
 
-func WithRestart(maxRestarts int, delay time.Duration) Opt {
+// WithRestart restarts the process if it exists. If limit
+// is 0 it will restart forever.
+func WithRestart(limit int, delay time.Duration) Opt {
 	return func(proc *process) {
 		proc.restart = true
-		proc.maxRestarts = maxRestarts
+		proc.maxRestarts = limit
 		proc.restartDelay = delay
 	}
 }

@@ -1,26 +1,33 @@
 package supervisor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
-	"sync"
+	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/fly-examples/postgres-ha/pkg/flycheck"
 	"github.com/google/shlex"
+	"golang.org/x/sync/errgroup"
 )
 
+type processError struct {
+	process *process
+}
+
+func (pe *processError) Error() string {
+	return fmt.Sprintf("process %s failed", pe.process.name)
+}
+
 type Supervisor struct {
-	name     string
-	output   *multiOutput
-	procs    []*process
-	procWg   sync.WaitGroup
-	crash    chan struct{}
-	stop     chan struct{}
-	stopping bool
-	timeout  time.Duration
+	name    string
+	output  *multiOutput
+	procs   []*process
+	stop    chan struct{}
+	timeout time.Duration
 }
 
 func New(name string, timeout time.Duration) *Supervisor {
@@ -48,9 +55,8 @@ func (h *Supervisor) AddProcess(name string, command string, opts ...Opt) {
 	proc.f = func() *exec.Cmd {
 		cmd := exec.Command(parsedCmd[0], parsedCmd[1:]...)
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
-		// cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uid, Gid: gid}
-
 		cmd.Env = proc.env
+		cmd.Dir = proc.dir
 
 		return cmd
 	}
@@ -64,50 +70,36 @@ func (h *Supervisor) AddProcess(name string, command string, opts ...Opt) {
 	h.procs = append(h.procs, proc)
 }
 
-func (h *Supervisor) runProcess(proc *process) {
-	h.procWg.Add(1)
+func (h *Supervisor) runProcess(ctx context.Context, proc *process) error {
+	restarts := 0
 
-	go func() {
-		defer h.procWg.Done()
+	for {
+		proc.Run()
 
-		restarts := 0
-
-		for {
-			proc.Run()
-
-			// supervisor is stopping, exit
-			if h.stopping {
-				break
-			}
-
-			// process is done, exit
-			if !proc.restart {
-				proc.writeLine([]byte("done"))
-				break
-			}
-
-			// process restart limit reached, crash supervisor
-			if proc.maxRestarts > 0 && restarts >= proc.maxRestarts {
-				proc.writeLine([]byte("restart attempts exhausted, crashing"))
-				h.crash <- struct{}{}
-				break
-			}
-
-			restarts++
-			if proc.restartDelay > 0 {
-				proc.writeLine([]byte(fmt.Sprintf("restarting in %s", proc.restartDelay)))
-				time.Sleep(proc.restartDelay)
-			}
-
-			proc.writeLine([]byte(fmt.Sprintf("restarting [attempt %d]", restarts)))
+		// supervisor is stopping, exit
+		if ctx.Err() != nil {
+			return nil
 		}
-	}()
-}
 
-func (h *Supervisor) waitForCrashOrInterrupt() {
-	select {
-	case <-h.crash:
-	case <-h.stop:
+		// process is done, exit
+		if !proc.restart {
+			proc.writeLine([]byte("done"))
+			return nil
+		}
+
+		// process restart limit reached, crash supervisor
+		if proc.maxRestarts > 0 && restarts >= proc.maxRestarts {
+			proc.writeLine([]byte("restart attempts exhausted, crashing"))
+			return &processError{proc}
+		}
+
+		restarts++
+		proc.writeLine([]byte(fmt.Sprintf("restarting in %s [attempt %d]", proc.restartDelay, restarts)))
+		select {
+		case <-time.After(proc.restartDelay):
+		case <-ctx.Done():
+			return nil
+		}
 	}
 }
 
@@ -118,11 +110,10 @@ func (h *Supervisor) waitForTimeoutOrInterrupt() {
 	}
 }
 
-func (h *Supervisor) waitForExit() {
-	h.waitForCrashOrInterrupt()
+func (h *Supervisor) waitForExit(ctx context.Context) {
+	<-ctx.Done()
 
 	fmt.Println("supervisor stopping")
-	h.stopping = true
 
 	for _, proc := range h.procs {
 		go proc.Interrupt()
@@ -139,23 +130,42 @@ func (h *Supervisor) StartHttpListener() {
 	go flycheck.StartCheckListener()
 }
 
-func (h *Supervisor) Run() {
-	h.crash = make(chan struct{}, len(h.procs))
+func (h *Supervisor) Run() error {
 	h.stop = make(chan struct{})
 
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		<-h.stop
+		cancel()
+	}()
+
+	eg, egCtx := errgroup.WithContext(ctx)
+
 	for _, proc := range h.procs {
-		h.runProcess(proc)
+		p := proc
+		eg.Go(func() error {
+			return h.runProcess(egCtx, p)
+		})
 	}
 
-	go h.waitForExit()
+	go h.waitForExit(egCtx)
 
-	h.procWg.Wait()
+	return eg.Wait()
 }
 
 func (h *Supervisor) Stop() {
 	h.stop <- struct{}{}
 }
 
-func (h *Supervisor) Wait() {
-	h.procWg.Wait()
+func (h *Supervisor) StopOnSignal(sigs ...os.Signal) {
+	sigch := make(chan os.Signal)
+	signal.Notify(sigch, sigs...)
+
+	go func() {
+		for sig := range sigch {
+			fmt.Printf("Got %s, stopping\n", sig)
+			h.Stop()
+		}
+	}()
 }
