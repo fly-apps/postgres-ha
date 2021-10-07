@@ -33,14 +33,14 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           build-args: |
-            PG_VERSION=12.5
+            PG_VERSION=12.8
             VERSION=${{ steps.get-latest-tag.outputs.tag }}
           context: .
           file: ./Dockerfile
           push: true
           tags: |
             flyio/postgres:12
-            flyio/postgres:12.5
+            flyio/postgres:12.8
       -
         name: Build and push Postgres 13
         id: docker_build_13
