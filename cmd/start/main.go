@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -57,7 +56,7 @@ func main() {
 	}
 
 	stolonCmd := func(cmd string) string {
-		return fmt.Sprintf("/bin/sh -c gosu stolon %s", cmd)
+		return "gosu stolon " + cmd
 	}
 
 	go func() {
@@ -138,17 +137,22 @@ func main() {
 
 	svisor.AddProcess("sentinel", stolonCmd("stolon-sentinel"), supervisor.WithEnv(sentinelEnv), supervisor.WithRestart(0, 3*time.Second))
 
-	proxyEnv := map[string]string{
-		"STPROXY_LISTEN_ADDRESS": net.ParseIP("0.0.0.0").String(),
-		"STPROXY_PORT":           strconv.Itoa(node.PGProxyPort),
-		"STPROXY_LOG_LEVEL":      "info",
-		"STPROXY_CLUSTER_NAME":   node.AppName,
-		"STPROXY_STORE_BACKEND":  node.BackendStore,
-		"STPROXY_STORE_URL":      node.BackendStoreURL.String(),
-		"STPROXY_STORE_NODE":     node.StoreNode,
-	}
+	//svisor.AddProcess("proxy", "stolon-proxy", supervisor.WithEnv(proxyEnv))
+	// proxyEnv := map[string]string{
+	// 	"STPROXY_LISTEN_ADDRESS": net.ParseIP("0.0.0.0").String(),
+	// 	"STPROXY_PORT":           strconv.Itoa(node.PGProxyPort),
+	// 	"STPROXY_LOG_LEVEL":      "info",
+	// 	"STPROXY_CLUSTER_NAME":   node.AppName,
+	// 	"STPROXY_STORE_BACKEND":  node.BackendStore,
+	// 	"STPROXY_STORE_URL":      node.BackendStoreURL.String(),
+	// 	"STPROXY_STORE_NODE":     node.StoreNode,
+	// }
 
-	svisor.AddProcess("proxy", stolonCmd("stolon-proxy"), supervisor.WithEnv(proxyEnv), supervisor.WithRestart(0, 3*time.Second))
+	proxyEnv := map[string]string{
+		"FLY_APP_NAME":   os.Getenv("FLY_APP_NAME"),
+		"PRIMARY_REGION": os.Getenv("PRIMARY_REGION"),
+	}
+	svisor.AddProcess("proxy", "/usr/sbin/haproxy -W -db -f /fly/haproxy.cfg", supervisor.WithEnv(proxyEnv), supervisor.WithRestart(0, 1*time.Second))
 
 	exporterEnv := map[string]string{
 		"DATA_SOURCE_URI":                      fmt.Sprintf("[%s]:%d/postgres?sslmode=disable", node.PrivateIP, node.PGPort),
