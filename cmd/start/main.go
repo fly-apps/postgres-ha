@@ -123,17 +123,18 @@ func main() {
 
 	svisor.AddProcess("keeper", "stolon-keeper", supervisor.WithEnv(keeperEnv))
 
-	sentinelEnv := map[string]string{
-		"STSENTINEL_DATA_DIR":             node.DataDir,
-		"STSENTINEL_INITIAL_CLUSTER_SPEC": "/fly/cluster-spec.json",
-		"STSENTINEL_LOG_LEVEL":            "info",
-		"STSENTINEL_CLUSTER_NAME":         node.AppName,
-		"STSENTINEL_STORE_BACKEND":        node.BackendStore,
-		"STSENTINEL_STORE_URL":            node.BackendStoreURL.String(),
-		"STSENTINEL_STORE_NODE":           node.StoreNode,
+	if node.IsPrimaryRegion() {
+		sentinelEnv := map[string]string{
+			"STSENTINEL_DATA_DIR":             node.DataDir,
+			"STSENTINEL_INITIAL_CLUSTER_SPEC": "/fly/cluster-spec.json",
+			"STSENTINEL_LOG_LEVEL":            "info",
+			"STSENTINEL_CLUSTER_NAME":         node.AppName,
+			"STSENTINEL_STORE_BACKEND":        node.BackendStore,
+			"STSENTINEL_STORE_URL":            node.BackendStoreURL.String(),
+			"STSENTINEL_STORE_NODE":           node.StoreNode,
+		}
+		svisor.AddProcess("sentinel", "stolon-sentinel", supervisor.WithEnv(sentinelEnv))
 	}
-
-	svisor.AddProcess("sentinel", "stolon-sentinel", supervisor.WithEnv(sentinelEnv))
 
 	proxyEnv := map[string]string{
 		"STPROXY_LISTEN_ADDRESS": net.ParseIP("0.0.0.0").String(),
