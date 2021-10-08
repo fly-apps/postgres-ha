@@ -57,7 +57,7 @@ func main() {
 	}
 
 	stolonCmd := func(cmd string) string {
-		return fmt.Sprintf("/bin/sh -c gosu stolon %s", cmd)
+		return "gosu stolon " + cmd
 	}
 
 	go func() {
