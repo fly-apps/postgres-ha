@@ -5,14 +5,25 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
+type cmdFactory func() *exec.Cmd
+
 type process struct {
-	*exec.Cmd
-	name       string
-	color      int
-	output     *multiOutput
-	stopSignal os.Signal
+	name         string
+	color        int
+	output       *multiOutput
+	stopSignal   os.Signal
+	restart      bool
+	restartDelay time.Duration
+	maxRestarts  int
+
+	f       cmdFactory
+	running bool
+	dir     string
+	env     []string
+	cmd     *exec.Cmd
 }
 
 type Opt func(*process)
@@ -20,7 +31,7 @@ type Opt func(*process)
 func WithEnv(env map[string]string) Opt {
 	return func(proc *process) {
 		for k, v := range env {
-			proc.Env = append(proc.Env, fmt.Sprintf("%s=%s", k, v))
+			proc.env = append(proc.env, fmt.Sprintf("%s=%s", k, v))
 		}
 	}
 }
@@ -33,7 +44,17 @@ func WithStopSignal(sig os.Signal) Opt {
 
 func WithRootDir(dir string) Opt {
 	return func(proc *process) {
-		proc.Dir = dir
+		proc.dir = dir
+	}
+}
+
+// WithRestart restarts the process if it exists. If limit
+// is 0 it will restart forever.
+func WithRestart(limit int, delay time.Duration) Opt {
+	return func(proc *process) {
+		proc.restart = true
+		proc.maxRestarts = limit
+		proc.restartDelay = delay
 	}
 }
 
@@ -46,7 +67,7 @@ func (p *process) writeErr(err error) {
 }
 
 func (p *process) signal(sig os.Signal) {
-	group, err := os.FindProcess(-p.Process.Pid)
+	group, err := os.FindProcess(-p.cmd.Process.Pid)
 	if err != nil {
 		p.writeErr(err)
 		return
@@ -58,21 +79,27 @@ func (p *process) signal(sig os.Signal) {
 }
 
 func (p *process) Running() bool {
-	return p.Process != nil && p.ProcessState == nil
+	return p.cmd != nil && p.cmd.Process != nil && p.cmd.ProcessState == nil
 }
 
 func (p *process) Run() {
+	p.cmd = p.f()
+	defer func() {
+		p.cmd = nil
+	}()
+
 	p.output.PipeOutput(p)
 	defer p.output.ClosePipe(p)
 
-	ensureKill(p)
+	ensureKill(p.cmd)
 
 	p.writeLine([]byte("\033[1mRunning...\033[0m"))
 
-	if err := p.Cmd.Run(); err != nil {
+	if err := p.cmd.Run(); err != nil {
 		p.writeErr(err)
 	} else {
-		p.writeLine([]byte("\033[1mProcess exited\033[0m"))
+		status := p.cmd.ProcessState.ExitCode()
+		p.writeLine([]byte(fmt.Sprintf("\033[1mProcess exited %d\033[0m", status)))
 	}
 }
 

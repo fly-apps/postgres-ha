@@ -2,8 +2,11 @@
 
 package supervisor
 
-import "syscall"
+import (
+	"os/exec"
+	"syscall"
+)
 
-func ensureKill(p *process) {
-	p.SysProcAttr.Pdeathsig = syscall.SIGKILL
+func ensureKill(cmd *exec.Cmd) {
+	cmd.SysProcAttr.Pdeathsig = syscall.SIGKILL
 }

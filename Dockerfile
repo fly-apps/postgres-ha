@@ -22,7 +22,7 @@ LABEL fly.version=${VERSION}
 LABEL fly.pg-version=${PG_VERSION}
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
-    ca-certificates curl bash dnsutils vim-tiny procps jq \
+    ca-certificates curl bash dnsutils vim-tiny procps jq haproxy \
     && apt autoremove -y
 
 COPY --from=stolon /go/src/app/bin/* /usr/local/bin/
@@ -31,6 +31,7 @@ COPY --from=postgres_exporter /postgres_exporter /usr/local/bin/
 ADD /scripts/* /fly/
 ADD /config/* /fly/
 RUN useradd -ms /bin/bash stolon
+RUN mkdir -p /run/haproxy/
 COPY --from=flyutil /fly/bin/* /usr/local/bin/
 
 EXPOSE 5432

@@ -1,22 +1,31 @@
 package supervisor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
-	"sync"
+	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/fly-examples/postgres-ha/pkg/flycheck"
+	"github.com/google/shlex"
+	"golang.org/x/sync/errgroup"
 )
+
+type processError struct {
+	process *process
+}
+
+func (pe *processError) Error() string {
+	return fmt.Sprintf("process %s failed", pe.process.name)
+}
 
 type Supervisor struct {
 	name    string
 	output  *multiOutput
 	procs   []*process
-	procWg  sync.WaitGroup
-	done    chan bool
 	stop    chan struct{}
 	timeout time.Duration
 }
@@ -32,19 +41,25 @@ func New(name string, timeout time.Duration) *Supervisor {
 var colors = []int{2, 3, 4, 5, 6, 42, 130, 103, 129, 108}
 
 func (h *Supervisor) AddProcess(name string, command string, opts ...Opt) {
-	cmd := exec.Command("/bin/sh", "-c", "gosu stolon "+command)
-	// cmd.SysProcAttr = &syscall.SysProcAttr{}
-	// cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uid, Gid: gid}
-
 	proc := &process{
 		name:       name,
-		Cmd:        cmd,
 		color:      colors[len(h.procs)%len(colors)],
 		output:     h.output,
 		stopSignal: syscall.SIGINT,
+		env:        os.Environ(),
 	}
 
-	proc.Env = os.Environ()
+	parsedCmd, err := shlex.Split(command)
+	fatalOnErr(err)
+
+	proc.f = func() *exec.Cmd {
+		cmd := exec.Command(parsedCmd[0], parsedCmd[1:]...)
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+		cmd.Env = proc.env
+		cmd.Dir = proc.dir
+
+		return cmd
+	}
 
 	for _, opt := range opts {
 		opt(proc)
@@ -55,21 +70,36 @@ func (h *Supervisor) AddProcess(name string, command string, opts ...Opt) {
 	h.procs = append(h.procs, proc)
 }
 
-func (h *Supervisor) runProcess(proc *process) {
-	h.procWg.Add(1)
+func (h *Supervisor) runProcess(ctx context.Context, proc *process) error {
+	restarts := 0
 
-	go func() {
-		defer h.procWg.Done()
-		defer func() { h.done <- true }()
-
+	for {
 		proc.Run()
-	}()
-}
 
-func (h *Supervisor) waitForDoneOrInterrupt() {
-	select {
-	case <-h.done:
-	case <-h.stop:
+		// supervisor is stopping, exit
+		if ctx.Err() != nil {
+			return nil
+		}
+
+		// process is done, exit
+		if !proc.restart {
+			proc.writeLine([]byte("done"))
+			return nil
+		}
+
+		// process restart limit reached, crash supervisor
+		if proc.maxRestarts > 0 && restarts >= proc.maxRestarts {
+			proc.writeLine([]byte("restart attempts exhausted, crashing"))
+			return &processError{proc}
+		}
+
+		restarts++
+		proc.writeLine([]byte(fmt.Sprintf("restarting in %s [attempt %d]", proc.restartDelay, restarts)))
+		select {
+		case <-time.After(proc.restartDelay):
+		case <-ctx.Done():
+			return nil
+		}
 	}
 }
 
@@ -80,8 +110,8 @@ func (h *Supervisor) waitForTimeoutOrInterrupt() {
 	}
 }
 
-func (h *Supervisor) waitForExit() {
-	h.waitForDoneOrInterrupt()
+func (h *Supervisor) waitForExit(ctx context.Context) {
+	<-ctx.Done()
 
 	fmt.Println("supervisor stopping")
 
@@ -100,19 +130,42 @@ func (h *Supervisor) StartHttpListener() {
 	go flycheck.StartCheckListener()
 }
 
-func (h *Supervisor) Run() {
-	h.done = make(chan bool, len(h.procs))
+func (h *Supervisor) Run() error {
 	h.stop = make(chan struct{})
 
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		<-h.stop
+		cancel()
+	}()
+
+	eg, egCtx := errgroup.WithContext(ctx)
+
 	for _, proc := range h.procs {
-		h.runProcess(proc)
+		p := proc
+		eg.Go(func() error {
+			return h.runProcess(egCtx, p)
+		})
 	}
 
-	go h.waitForExit()
+	go h.waitForExit(egCtx)
 
-	h.procWg.Wait()
+	return eg.Wait()
 }
 
 func (h *Supervisor) Stop() {
 	h.stop <- struct{}{}
+}
+
+func (h *Supervisor) StopOnSignal(sigs ...os.Signal) {
+	sigch := make(chan os.Signal)
+	signal.Notify(sigch, sigs...)
+
+	go func() {
+		for sig := range sigch {
+			fmt.Printf("Got %s, stopping\n", sig)
+			h.Stop()
+		}
+	}()
 }

@@ -2,6 +2,8 @@
 
 package supervisor
 
-func ensureKill(p *process) {
-	// p.SysProcAttr.Pdeathsig in supported on on Linux, we can't do anything here
+import "os/exec"
+
+func ensureKill(cmd *exec.Cmd) {
+	// cmd.SysProcAttr.Pdeathsig in supported on on Linux, we can't do anything here
 }

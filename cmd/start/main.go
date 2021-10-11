@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
-	"os/signal"
 	"os/user"
 	"path/filepath"
 	"strconv"
@@ -55,6 +53,10 @@ func main() {
 	}
 	if err := os.Chown(node.DataDir, stolonUID, stolonGID); err != nil {
 		panic(err)
+	}
+
+	stolonCmd := func(cmd string) string {
+		return "gosu stolon " + cmd
 	}
 
 	go func() {
@@ -121,7 +123,7 @@ func main() {
 		keeperEnv["STKEEPER_CAN_BE_SYNCHRONOUS_REPLICA"] = "false"
 	}
 
-	svisor.AddProcess("keeper", "stolon-keeper", supervisor.WithEnv(keeperEnv))
+	svisor.AddProcess("keeper", stolonCmd("stolon-keeper"), supervisor.WithEnv(keeperEnv), supervisor.WithRestart(10, 10*time.Second))
 
 	sentinelEnv := map[string]string{
 		"STSENTINEL_DATA_DIR":             node.DataDir,
@@ -133,19 +135,24 @@ func main() {
 		"STSENTINEL_STORE_NODE":           node.StoreNode,
 	}
 
-	svisor.AddProcess("sentinel", "stolon-sentinel", supervisor.WithEnv(sentinelEnv))
+	svisor.AddProcess("sentinel", stolonCmd("stolon-sentinel"), supervisor.WithEnv(sentinelEnv), supervisor.WithRestart(0, 3*time.Second))
+
+	//svisor.AddProcess("proxy", "stolon-proxy", supervisor.WithEnv(proxyEnv))
+	// proxyEnv := map[string]string{
+	// 	"STPROXY_LISTEN_ADDRESS": net.ParseIP("0.0.0.0").String(),
+	// 	"STPROXY_PORT":           strconv.Itoa(node.PGProxyPort),
+	// 	"STPROXY_LOG_LEVEL":      "info",
+	// 	"STPROXY_CLUSTER_NAME":   node.AppName,
+	// 	"STPROXY_STORE_BACKEND":  node.BackendStore,
+	// 	"STPROXY_STORE_URL":      node.BackendStoreURL.String(),
+	// 	"STPROXY_STORE_NODE":     node.StoreNode,
+	// }
 
 	proxyEnv := map[string]string{
-		"STPROXY_LISTEN_ADDRESS": net.ParseIP("0.0.0.0").String(),
-		"STPROXY_PORT":           strconv.Itoa(node.PGProxyPort),
-		"STPROXY_LOG_LEVEL":      "info",
-		"STPROXY_CLUSTER_NAME":   node.AppName,
-		"STPROXY_STORE_BACKEND":  node.BackendStore,
-		"STPROXY_STORE_URL":      node.BackendStoreURL.String(),
-		"STPROXY_STORE_NODE":     node.StoreNode,
+		"FLY_APP_NAME":   os.Getenv("FLY_APP_NAME"),
+		"PRIMARY_REGION": os.Getenv("PRIMARY_REGION"),
 	}
-
-	svisor.AddProcess("proxy", "stolon-proxy", supervisor.WithEnv(proxyEnv))
+	svisor.AddProcess("proxy", "/usr/sbin/haproxy -W -db -f /fly/haproxy.cfg", supervisor.WithEnv(proxyEnv), supervisor.WithRestart(0, 1*time.Second))
 
 	exporterEnv := map[string]string{
 		"DATA_SOURCE_URI":                      fmt.Sprintf("[%s]:%d/postgres?sslmode=disable", node.PrivateIP, node.PGPort),
@@ -157,23 +164,20 @@ func main() {
 		"PG_EXPORTER_EXTEND_QUERY_PATH":        "/fly/queries.yaml",
 	}
 
-	svisor.AddProcess("exporter", "postgres_exporter", supervisor.WithEnv(exporterEnv))
+	svisor.AddProcess("exporter", "postgres_exporter", supervisor.WithEnv(exporterEnv), supervisor.WithRestart(0, 1*time.Second))
 
 	if err := flypg.InitConfig("/fly/cluster-spec.json"); err != nil {
 		panic(err)
 	}
 
-	sigch := make(chan os.Signal)
-	signal.Notify(sigch, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigch
-		fmt.Println("Got interrupt, stopping")
-		svisor.Stop()
-	}()
+	svisor.StopOnSignal(syscall.SIGINT, syscall.SIGTERM)
 
 	svisor.StartHttpListener()
-	svisor.Run()
+	err = svisor.Run()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
 func writeStolonctlEnvFile(n *flypg.Node, filename string) {
