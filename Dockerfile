@@ -16,6 +16,7 @@ FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 
 FROM postgres:${PG_VERSION}
 ARG VERSION 
+ARG POSTGIS_MAJOR=3
 
 LABEL fly.app_role=postgres_cluster
 LABEL fly.version=${VERSION}
@@ -23,6 +24,8 @@ LABEL fly.pg-version=${PG_VERSION}
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ca-certificates curl bash dnsutils vim-tiny procps jq haproxy \
+    postgresql-$PG_MAJOR-postgis-$POSTGIS_MAJOR \
+    postgresql-$PG_MAJOR-postgis-$POSTGIS_MAJOR-scripts \    
     && apt autoremove -y
 
 COPY --from=stolon /go/src/app/bin/* /usr/local/bin/
