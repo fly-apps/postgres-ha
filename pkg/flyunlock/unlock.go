@@ -63,7 +63,7 @@ func Run() error {
 		return err
 	}
 	svisor := supervisor.New("flypg", 5*time.Minute)
-	svisor.AddProcess("pg", fmt.Sprintf("postgres -D /data/postgres -p 5432 -h %s", ip.String()))
+	svisor.AddProcess("pg", fmt.Sprintf("gosu stolon postgres -D /data/postgres -p 5432 -h %s", ip.String()))
 
 	go svisor.Run()
 
