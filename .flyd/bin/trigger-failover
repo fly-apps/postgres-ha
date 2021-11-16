@@ -1,0 +1,47 @@
+#!/bin/bash
+
+export $(cat /data/.env | xargs)
+
+# Identify node holding master
+NODE_ID=$(stolonctl clusterdata read | jq '.cluster.status.master')
+
+JQ=".dbs.$NODE_ID.spec.keeperUID"
+KEEPER_UID=$(stolonctl clusterdata read | jq $JQ | tr -d '"')
+results=$(stolonctl clusterdata read | jq  ".keepers | .[].status.canBeMaster");
+
+eligible_count=0
+for result in $results
+do
+  if [ "$result" = "true" ] ; then
+    ((eligible_count+=1))
+  fi
+done
+
+if (( $eligible_count > 1 )) ; then
+  # Attempt failover
+  stolonctl failkeeper $KEEPER_UID
+else
+  echo '{"status": "failed", "data":{"ok": false, "error": "No eligible keepers available to accommodate failover."}}'
+  exit 1
+fi
+
+ID=""
+Q=""
+UUID=""
+for i in $(seq 1 20)
+do
+  ID=$(stolonctl clusterdata read | jq '.cluster.status.master')
+  Q=".dbs.$ID.spec.keeperUID"
+  UUID=$(stolonctl clusterdata read | jq $Q | tr -d '"')
+
+  if [ -n "$UUID" ] && [ "$UUID" != "null" ] && [ "$UUID" != "$KEEPER_UID" ]
+  then
+    echo '{"status": "success", "data":{"ok": true, "message": "Failover was successful"}}'
+    exit 0
+  fi
+  sleep 1
+done
+
+
+echo '{"status": "failed", "data":{"ok": false, "error": "Failover was not successful"}}'
+exit 1

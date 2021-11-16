@@ -1,4 +1,4 @@
-ARG PG_VERSION=13.4
+ARG PG_VERSION=13.1
 ARG VERSION=dev
 
 FROM golang:1.16 as flyutil
@@ -9,6 +9,12 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/flyadmin ./cmd/flyadmin
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/start ./cmd/start
+
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/scripts/restart ./.flyd/scripts/restart.go
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/scripts/run_sql ./.flyd/scripts/run_sql.go
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/scripts/role ./.flyd/scripts/role.go
+
+
 
 FROM flyio/stolon:b6b9aaf  as stolon
 
@@ -23,19 +29,26 @@ LABEL fly.version=${VERSION}
 LABEL fly.pg-version=${PG_VERSION}
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
-    ca-certificates curl bash dnsutils vim-tiny procps jq haproxy \
+    ca-certificates curl bash dnsutils vim-tiny procps jq haproxy iproute2 \
     postgresql-$PG_MAJOR-postgis-$POSTGIS_MAJOR \
-    postgresql-$PG_MAJOR-postgis-$POSTGIS_MAJOR-scripts \    
+    postgresql-$PG_MAJOR-postgis-$POSTGIS_MAJOR-scripts \
     && apt autoremove -y
 
 COPY --from=stolon /go/src/app/bin/* /usr/local/bin/
 COPY --from=postgres_exporter /postgres_exporter /usr/local/bin/
 
-ADD /scripts/* /fly/
+RUN mkdir -p /fly/scripts/
+
+ADD /.flyd/bin/* /fly/scripts/
+COPY --from=flyutil /fly/scripts/* /fly/scripts/
+
 ADD /config/* /fly/
 RUN useradd -ms /bin/bash stolon
 RUN mkdir -p /run/haproxy/
+
+
 COPY --from=flyutil /fly/bin/* /usr/local/bin/
+
 
 EXPOSE 5432
 

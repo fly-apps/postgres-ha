@@ -3,6 +3,7 @@ module github.com/fly-examples/postgres-ha
 go 1.16
 
 require (
+	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/jackc/pgtype v1.6.2 // indirect
 	github.com/jackc/pgx/v4 v4.10.1
