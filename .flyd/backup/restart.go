@@ -2,13 +2,17 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os/exec"
 
 	"github.com/fly-examples/postgres-ha/.flyd/scripts/util"
 )
 
 func main() {
-	subProcess := exec.Command("gosu stolon pg_ctl -w -m smart -t 10 -D /data/postgres/ restart >/dev/null")
+	args := []string{"-m", "smart", "-D", "/data/postgres/", "restart"}
+	subProcess := exec.Command("gosu stolon pg_ctl", args...)
+
+	subProcess.Stdout = io.Discard
 
 	if err := subProcess.Run(); err != nil {
 		util.WriteError(err)

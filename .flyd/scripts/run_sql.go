@@ -2,11 +2,12 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/fly-examples/postgres-ha/.flyd/scripts/util"
 )
@@ -18,34 +19,36 @@ func main() {
 	cmdPtr := flag.String("command", "", "SQL command to run")
 	flag.Parse()
 
-	subProcess := exec.Command("psql", connectionString(*userPtr, *passPtr, *databasePtr))
-
-	stdin, err := subProcess.StdinPipe()
+	decodeCommand, err := base64.StdEncoding.DecodeString(*cmdPtr)
 	if err != nil {
-		panic(err)
+		util.WriteError(err)
 	}
-	defer stdin.Close()
+
+	args := []string{connectionString(*userPtr, *passPtr, *databasePtr), "-t", "-c", string(decodeCommand)}
+	subProcess := exec.Command("psql", args...)
 
 	var outBuf, errBuf bytes.Buffer
 	subProcess.Stdout = &outBuf
 	subProcess.Stderr = &errBuf
 
-	if err = subProcess.Start(); err != nil {
-		panic(err)
+	err = subProcess.Start()
+	if err != nil {
+		util.WriteError(err)
 	}
-
-	io.WriteString(stdin, *cmdPtr+"\n")
-	io.WriteString(stdin, "\\q"+"\n")
 
 	subProcess.Wait()
 
-	if subProcess.ProcessState.ExitCode() != 0 {
-		util.WriteError(fmt.Errorf(errBuf.String()))
-		os.Exit(0)
+	out := strings.Trim(outBuf.String(), "\n")
+	out = strings.TrimSpace(out)
+
+	errOut := strings.Trim(errBuf.String(), "\n")
+	errOut = strings.TrimSpace(errOut)
+
+	if subProcess.ProcessState.ExitCode() != 0 || errBuf.String() != "" {
+		util.WriteError(fmt.Errorf(errOut))
 	}
 
-	util.WriteOutput(outBuf.String())
-	os.Exit(0)
+	util.WriteOutput(out)
 }
 
 func connectionString(user, pass, database string) string {

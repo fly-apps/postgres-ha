@@ -10,7 +10,6 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/flyadmin ./cmd/flyadmin
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/start ./cmd/start
 
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/scripts/restart ./.flyd/scripts/restart.go
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/scripts/run_sql ./.flyd/scripts/run_sql.go
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/scripts/role ./.flyd/scripts/role.go
 
