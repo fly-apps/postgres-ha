@@ -55,8 +55,12 @@ func InitConfig(filename string) error {
 	initMode := "new"
 	existingConfig := map[string]string{}
 
-	if _, err := os.Stat("/data/keeperstate"); err == nil {
+	// Don't blow away postgres directory if it exists present.
+	if _, err := os.Stat("/data/postgres"); err == nil {
 		initMode = "existing"
+	}
+
+	if _, err := os.Stat("/data/keeperstate"); err == nil {
 		var keeperState KeeperState
 		data, err := os.ReadFile("/data/keeperstate")
 		if err != nil {
@@ -68,6 +72,8 @@ func InitConfig(filename string) error {
 		}
 		if keeperState.UID != "" {
 			existingConfig["keeperUID"] = keeperState.UID
+		} else {
+			existingConfig["keeperUID"] = "stub"
 		}
 	}
 
