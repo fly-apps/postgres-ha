@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -58,9 +59,16 @@ func InitConfig(filename string) error {
 	// Don't blow away postgres directory if it exists present.
 	if _, err := os.Stat("/data/postgres"); err == nil {
 		initMode = "existing"
-	}
 
-	if _, err := os.Stat("/data/keeperstate"); err == nil {
+		// if the keeperstate file does not exist, seed it.
+		_, err = os.Stat("/data/keeperstate")
+		if os.IsNotExist(err) && initMode == "existing" {
+			data := []byte("{\"UID\":\"ab805b922\",\"ClusterUID\":\"889e599a\"}")
+			if err = ioutil.WriteFile("/data/keeperstate", data, 0644); err != nil {
+				return err
+			}
+		}
+
 		var keeperState KeeperState
 		data, err := os.ReadFile("/data/keeperstate")
 		if err != nil {
@@ -72,9 +80,8 @@ func InitConfig(filename string) error {
 		}
 		if keeperState.UID != "" {
 			existingConfig["keeperUID"] = keeperState.UID
-		} else {
-			existingConfig["keeperUID"] = "stub"
 		}
+
 	}
 
 	cfg = Config{
