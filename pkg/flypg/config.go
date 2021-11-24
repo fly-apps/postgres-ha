@@ -60,11 +60,11 @@ func InitConfig(filename string) error {
 	if _, err := os.Stat("/data/postgres"); err == nil {
 		initMode = "existing"
 
-		// if the keeperstate file does not exist, seed it.
-		// TODO - There is likely a better way to handle this, may take up to 2 minutes for Stolon
-		// to re-register the cluster.
 		_, err = os.Stat("/data/keeperstate")
 		if os.IsNotExist(err) && initMode == "existing" {
+			// if the keeperstate file does not exist, seed it.
+			// TODO - There is likely a better way to handle this, may take up to 2 minutes for Stolon
+			// to re-register the cluster.
 			data := []byte("{\"UID\":\"ab805b922\"}")
 			if err = ioutil.WriteFile("/data/keeperstate", data, 0644); err != nil {
 				return err
