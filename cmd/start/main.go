@@ -53,10 +53,11 @@ func main() {
 		panic(err)
 	}
 
-	cmd := exec.Command("chown", fmt.Sprintf("-R %d:%d", stolonUID, stolonGID))
-	_, err = cmd.CombinedOutput()
+	cmdStr := fmt.Sprintf("chown -R %d:%d %s", stolonUID, stolonGID, node.DataDir)
+	cmd := exec.Command("sh", "-c", cmdStr)
+	_, err = cmd.Output()
 	if err != nil {
-		panic(err)
+		fmt.Println(err.Error())
 	}
 
 	stolonCmd := func(cmd string) string {

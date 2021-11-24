@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/user"
 	"strconv"
 	"strings"
@@ -46,7 +47,10 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	if err := os.Chown("/data/postgres", stolonUID, stolonGID); err != nil {
+	cmdStr := fmt.Sprintf("chown -R %d:%d /data", stolonUID, stolonGID)
+	cmd := exec.Command("sh", "-c", cmdStr)
+	_, err = cmd.Output()
+	if err != nil {
 		return err
 	}
 
