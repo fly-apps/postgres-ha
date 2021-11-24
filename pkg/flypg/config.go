@@ -56,14 +56,16 @@ func InitConfig(filename string) error {
 	initMode := "new"
 	existingConfig := map[string]string{}
 
-	// Don't blow away postgres directory if it exists present.
+	// Don't blow away postgres directory if it exists.
 	if _, err := os.Stat("/data/postgres"); err == nil {
 		initMode = "existing"
 
 		// if the keeperstate file does not exist, seed it.
+		// TODO - There is likely a better way to handle this, may take up to 2 minutes for Stolon
+		// to re-register the cluster.
 		_, err = os.Stat("/data/keeperstate")
 		if os.IsNotExist(err) && initMode == "existing" {
-			data := []byte("{\"UID\":\"ab805b922\",\"ClusterUID\":\"889e599a\"}")
+			data := []byte("{\"UID\":\"ab805b922\"}")
 			if err = ioutil.WriteFile("/data/keeperstate", data, 0644); err != nil {
 				return err
 			}
