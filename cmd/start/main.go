@@ -57,7 +57,7 @@ func main() {
 	cmd := exec.Command("sh", "-c", cmdStr)
 	_, err = cmd.Output()
 	if err != nil {
-		fmt.Println(err.Error())
+		panic(err)
 	}
 
 	stolonCmd := func(cmd string) string {
