@@ -281,7 +281,7 @@ func initReplicationUser(ctx context.Context, pg *pgx.Conn, creds flypg.Credenti
 	}
 
 	if replUser == nil {
-		return errors.New("error creating operator: user not found")
+		return errors.New("error creating replication user, user not found")
 	}
 
 	if !replUser.ReplUser {
