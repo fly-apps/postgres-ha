@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strconv"
@@ -51,7 +52,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if err := os.Chown(node.DataDir, stolonUID, stolonGID); err != nil {
+
+	cmdStr := fmt.Sprintf("chown -R %d:%d %s", stolonUID, stolonGID, node.DataDir)
+	cmd := exec.Command("sh", "-c", cmdStr)
+	_, err = cmd.Output()
+	if err != nil {
 		panic(err)
 	}
 
@@ -90,7 +95,12 @@ func main() {
 					}
 
 					if err = initOperator(context.TODO(), pg, node.OperatorCredentials); err != nil {
-						fmt.Println("error configuring operator:", err)
+						fmt.Println("error configuring operator user:", err)
+						continue
+					}
+
+					if err = initReplicationUser(context.TODO(), pg, node.ReplCredentials); err != nil {
+						fmt.Println("error configuring replication user:", err)
 						continue
 					}
 				}
@@ -136,17 +146,6 @@ func main() {
 	}
 
 	svisor.AddProcess("sentinel", stolonCmd("stolon-sentinel"), supervisor.WithEnv(sentinelEnv), supervisor.WithRestart(0, 3*time.Second))
-
-	//svisor.AddProcess("proxy", "stolon-proxy", supervisor.WithEnv(proxyEnv))
-	// proxyEnv := map[string]string{
-	// 	"STPROXY_LISTEN_ADDRESS": net.ParseIP("0.0.0.0").String(),
-	// 	"STPROXY_PORT":           strconv.Itoa(node.PGProxyPort),
-	// 	"STPROXY_LOG_LEVEL":      "info",
-	// 	"STPROXY_CLUSTER_NAME":   node.AppName,
-	// 	"STPROXY_STORE_BACKEND":  node.BackendStore,
-	// 	"STPROXY_STORE_URL":      node.BackendStoreURL.String(),
-	// 	"STPROXY_STORE_NODE":     node.StoreNode,
-	// }
 
 	proxyEnv := map[string]string{
 		"FLY_APP_NAME":   os.Getenv("FLY_APP_NAME"),
@@ -243,6 +242,63 @@ func initOperator(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) er
 	}
 
 	fmt.Println("operator ready!")
+
+	return nil
+}
+
+func initReplicationUser(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) error {
+	fmt.Println("configuring repluser")
+
+	if creds.Password == "" {
+		fmt.Println("REPL_PASSWORD not set, cannot configure operator")
+		return nil
+	}
+
+	users, err := admin.ListUsers(ctx, pg)
+	if err != nil {
+		return err
+	}
+
+	var replUser *admin.UserInfo
+
+	for _, u := range users {
+		if u.Username == creds.Username {
+			replUser = &u
+			break
+		}
+	}
+
+	if replUser == nil {
+		fmt.Println("repl user does not exist, creating")
+		err = admin.CreateUser(ctx, pg, creds.Username, creds.Password)
+		if err != nil {
+			return err
+		}
+		replUser, err = admin.FindUser(ctx, pg, creds.Username)
+		if err != nil {
+			return err
+		}
+	}
+
+	if replUser == nil {
+		return errors.New("error creating replication user, user not found")
+	}
+
+	if !replUser.ReplUser {
+		fmt.Println("repluser does not have REPLICATION role, fixing")
+		if err := admin.GrantReplication(ctx, pg, creds.Username); err != nil {
+			return err
+		}
+	}
+
+	if !replUser.IsPassword(creds.Password) {
+		fmt.Println("repluser password does not match config, changing")
+		if err := admin.ChangePassword(ctx, pg, creds.Username, creds.Password); err != nil {
+			return err
+		}
+	}
+
+	fmt.Println("replication ready!")
 
 	return nil
 }

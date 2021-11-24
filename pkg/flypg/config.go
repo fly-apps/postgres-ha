@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -55,8 +56,21 @@ func InitConfig(filename string) error {
 	initMode := "new"
 	existingConfig := map[string]string{}
 
-	if _, err := os.Stat("/data/keeperstate"); err == nil {
+	// Don't blow away postgres directory if it exists.
+	if _, err := os.Stat("/data/postgres"); err == nil {
 		initMode = "existing"
+
+		_, err = os.Stat("/data/keeperstate")
+		if os.IsNotExist(err) && initMode == "existing" {
+			// if the keeperstate file does not exist, seed it.
+			// TODO - There is likely a better way to handle this, may take up to 2 minutes for Stolon
+			// to re-register the cluster.
+			data := []byte("{\"UID\":\"ab805b922\"}")
+			if err = ioutil.WriteFile("/data/keeperstate", data, 0644); err != nil {
+				return err
+			}
+		}
+
 		var keeperState KeeperState
 		data, err := os.ReadFile("/data/keeperstate")
 		if err != nil {
@@ -69,6 +83,7 @@ func InitConfig(filename string) error {
 		if keeperState.UID != "" {
 			existingConfig["keeperUID"] = keeperState.UID
 		}
+
 	}
 
 	cfg = Config{

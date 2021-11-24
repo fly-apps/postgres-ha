@@ -31,6 +31,17 @@ func GrantSuperuser(ctx context.Context, pg *pgx.Conn, username string) error {
 	return nil
 }
 
+func GrantReplication(ctx context.Context, pg *pgx.Conn, username string) error {
+	sql := fmt.Sprintf("ALTER USER %s WITH REPLICATION;", username)
+
+	_, err := pg.Exec(ctx, sql)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func ChangePassword(ctx context.Context, pg *pgx.Conn, username, password string) error {
 	sql := fmt.Sprintf("ALTER USER %s WITH LOGIN PASSWORD '%s';", username, password)
 
@@ -74,6 +85,7 @@ func ListDatabases(ctx context.Context, pg *pgx.Conn) ([]DbInfo, error) {
 type UserInfo struct {
 	Username     string   `json:"username"`
 	SuperUser    bool     `json:"superuser"`
+	ReplUser     bool     `json:"repluser"`
 	Databases    []string `json:"databases"`
 	PasswordHash string   `json:"-"`
 }
@@ -96,6 +108,7 @@ func ListUsers(ctx context.Context, pg *pgx.Conn) ([]UserInfo, error) {
 	sql := `
 		select u.usename,
 			usesuper as superuser,
+			userepl as repluser,
 			a.rolpassword as passwordhash,
       (select array_agg(d.datname::text order by d.datname)
 				from pg_database d
@@ -117,7 +130,7 @@ func ListUsers(ctx context.Context, pg *pgx.Conn) ([]UserInfo, error) {
 
 	for rows.Next() {
 		ui := UserInfo{}
-		if err := rows.Scan(&ui.Username, &ui.SuperUser, &ui.PasswordHash, &ui.Databases); err != nil {
+		if err := rows.Scan(&ui.Username, &ui.SuperUser, &ui.ReplUser, &ui.PasswordHash, &ui.Databases); err != nil {
 			return nil, err
 		}
 		values = append(values, ui)
