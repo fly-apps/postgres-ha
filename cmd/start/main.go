@@ -286,7 +286,7 @@ func initReplicationUser(ctx context.Context, pg *pgx.Conn, creds flypg.Credenti
 
 	if !replUser.ReplUser {
 		fmt.Println("repluser does not have REPLICATION role, fixing")
-		if err := admin.GrantSuperuser(ctx, pg, creds.Username); err != nil {
+		if err := admin.GrantReplication(ctx, pg, creds.Username); err != nil {
 			return err
 		}
 	}
