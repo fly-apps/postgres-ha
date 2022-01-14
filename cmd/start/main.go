@@ -64,6 +64,11 @@ func main() {
 		return "gosu stolon " + cmd
 	}
 
+	cfg, err := flypg.InitConfig("/fly/cluster-spec.json")
+	if err != nil {
+		panic(err)
+	}
+
 	go func() {
 		t := time.NewTicker(1 * time.Second)
 		defer t.Stop()
@@ -99,10 +104,14 @@ func main() {
 						continue
 					}
 
-					if err = initReplicationUser(context.TODO(), pg, node.ReplCredentials); err != nil {
-						fmt.Println("error configuring replication user:", err)
-						continue
+					// If initMode is "new", Stolon will handle replUser creation.
+					if cfg.InitMode == flypg.InitModeExisting {
+						if err = initReplicationUser(context.TODO(), pg, node.ReplCredentials); err != nil {
+							fmt.Println("error configuring replication user:", err)
+							continue
+						}
 					}
+
 				}
 
 				return
@@ -133,7 +142,9 @@ func main() {
 		keeperEnv["STKEEPER_CAN_BE_SYNCHRONOUS_REPLICA"] = "false"
 	}
 
-	svisor.AddProcess("keeper", stolonCmd("stolon-keeper"), supervisor.WithEnv(keeperEnv), supervisor.WithRestart(10, 10*time.Second))
+	fmt.Printf("Keeper config: %+v\n", keeperEnv)
+
+	svisor.AddProcess("keeper", stolonCmd("stolon-keeper"), supervisor.WithEnv(keeperEnv), supervisor.WithRestart(5, 5*time.Second))
 
 	sentinelEnv := map[string]string{
 		"STSENTINEL_DATA_DIR":             node.DataDir,
@@ -144,6 +155,8 @@ func main() {
 		"STSENTINEL_STORE_URL":            node.BackendStoreURL.String(),
 		"STSENTINEL_STORE_NODE":           node.StoreNode,
 	}
+
+	fmt.Printf("Sentinel config: %+v\n", sentinelEnv)
 
 	svisor.AddProcess("sentinel", stolonCmd("stolon-sentinel"), supervisor.WithEnv(sentinelEnv), supervisor.WithRestart(0, 3*time.Second))
 
@@ -164,10 +177,6 @@ func main() {
 	}
 
 	svisor.AddProcess("exporter", "postgres_exporter", supervisor.WithEnv(exporterEnv), supervisor.WithRestart(0, 1*time.Second))
-
-	if err := flypg.InitConfig("/fly/cluster-spec.json"); err != nil {
-		panic(err)
-	}
 
 	svisor.StopOnSignal(syscall.SIGINT, syscall.SIGTERM)
 
