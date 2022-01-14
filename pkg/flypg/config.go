@@ -15,6 +15,9 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
+const InitModeNew = "new"
+const InitModeExisting = "existing"
+
 type Config struct {
 	InitMode             string            `json:"initMode"`
 	ExistingConfig       map[string]string `json:"existingConfig"`
@@ -27,7 +30,7 @@ type KeeperState struct {
 	ClusterUID string `json:"ClusterUID"`
 }
 
-func InitConfig(filename string) error {
+func InitConfig(filename string) (*Config, error) {
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		log.Fatalln("error cleaning filename", err)
@@ -40,12 +43,12 @@ func InitConfig(filename string) error {
 		writeJson(os.Stdout, cfg)
 		// return
 	} else if !os.IsNotExist(err) {
-		return errors.Wrap(err, "error loading cluster spec")
+		return nil, errors.Wrap(err, "error loading cluster spec")
 	}
 
 	mem, err := memTotal()
 	if err != nil {
-		return errors.Wrap(err, "error fetching total system memory")
+		return nil, errors.Wrap(err, "error fetching total system memory")
 	}
 
 	fmt.Printf("system memory: %dmb vcpu count: %d\n", mem, runtime.NumCPU())
@@ -53,32 +56,32 @@ func InitConfig(filename string) error {
 	workMem := max(4, (mem / 64))
 	maintenanceWorkMem := max(64, (mem / 20))
 
-	initMode := "new"
+	initMode := InitModeNew
 	existingConfig := map[string]string{}
 
 	// Don't blow away postgres directory if it exists.
 	if _, err := os.Stat("/data/postgres"); err == nil {
-		initMode = "existing"
+		initMode = InitModeExisting
 
 		_, err = os.Stat("/data/keeperstate")
-		if os.IsNotExist(err) && initMode == "existing" {
+		if os.IsNotExist(err) && initMode == InitModeExisting {
 			// if the keeperstate file does not exist, seed it.
 			// TODO - There is likely a better way to handle this, may take up to 2 minutes for Stolon
 			// to re-register the cluster.
 			data := []byte("{\"UID\":\"ab805b922\"}")
 			if err = ioutil.WriteFile("/data/keeperstate", data, 0644); err != nil {
-				return err
+				return nil, err
 			}
 		}
 
 		var keeperState KeeperState
 		data, err := os.ReadFile("/data/keeperstate")
 		if err != nil {
-			return err
+			return nil, err
 		}
 		err = json.Unmarshal(data, &keeperState)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if keeperState.UID != "" {
 			existingConfig["keeperUID"] = keeperState.UID
@@ -107,12 +110,12 @@ func InitConfig(filename string) error {
 	writeJson(os.Stdout, cfg)
 
 	if err := writeConfig(filename, cfg); err != nil {
-		return errors.Wrap(err, "error writing cluster-spec.json")
+		return nil, errors.Wrap(err, "error writing cluster-spec.json")
 	}
 
 	fmt.Println("generated new config")
 
-	return nil
+	return &cfg, nil
 }
 
 func readConfig(filename string) (cfg Config, err error) {
