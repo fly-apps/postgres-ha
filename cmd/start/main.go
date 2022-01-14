@@ -104,8 +104,7 @@ func main() {
 						continue
 					}
 
-					// Stolon will handle replUser creation during initial bootstrap.
-					//
+					// Stolon handles replUser creation during initial bootstrap.
 					if cfg.InitMode == flypg.InitModeExisting {
 						if err = initReplicationUser(context.TODO(), pg, node.ReplCredentials); err != nil {
 							fmt.Println("error configuring replication user:", err)
