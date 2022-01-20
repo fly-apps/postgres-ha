@@ -1,4 +1,4 @@
-# High Availability Postgres on Fly
+# High Availability Postgres on Fly.io
 
 This repo contains all the code and configuration necessary to run a [highly available Postgres cluster](https://fly.io/docs/reference/postgres/) in a Fly.io organization's private network. This source is packaged into [Docker images](https://hub.docker.com/r/flyio/postgres-ha/tags) which allow you to track and upgrade versions cleanly as new features are added.
 
@@ -49,3 +49,32 @@ Scale to another region by creating a volume there. Now you should have a primar
 1. `fly volumes create pg_data --region syd --size 10`
 2. `fly scale count 3`
 3. `fly status`
+
+## Connecting
+
+Fly apps within the same organization can connect to your Postgres using the following URI:
+
+```
+postgres://postgres:<operator_password>@<postgres-app-name>.internal:5432/<database-name>
+```
+
+### Connecting to Postgres from your local machine
+
+1. Setup WireGuard Tunnel ( If you haven’t already )
+Follow the steps provided here: https://fly.io/docs/reference/private-networking/#step-by-step
+
+2. Postgres needs to be installed on your local machine.
+
+3. Use psql to connect to your Postgres instance.
+```
+psql postgres://postgres:<operator_password>@<postgres-app-name>.internal:5432
+```
+
+
+## Having trouble?
+
+Create an issue or ask a question here: https://community.fly.io/
+
+
+## Contributing
+If you're looking to get involved, fork the project and send pull requests.
