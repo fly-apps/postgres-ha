@@ -6,6 +6,7 @@ This is a ready to go HA Postgres app that runs on Fly.
 
 ### `flyctl launch --no-deploy`
 This gets you started with a Fly application and an associated config file.
+Choose `yes` when asked whether to copy the existing configuration to the newly generated app.
 
 ### Set secrets
 This app requires `SU_PASSWORD` and `REPL_PASSWORD` environment variables.
