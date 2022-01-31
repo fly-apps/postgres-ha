@@ -1,11 +1,6 @@
 #!/bin/bash
 
-export $(cat /data/.env | xargs)
-
-encoded_cmd=$1
-cmd=$(echo -n $encoded_cmd | base64 -d)
-
-stolonctl $cmd
+su stolon sh -c "pg_ctl -w -m smart -t 10 -D /data/postgres/ restart >/dev/null"
 
 if [ $? = 0 ]; then
   echo '{"status": "success", "data":{"ok": true}}'

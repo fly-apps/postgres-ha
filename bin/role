@@ -1,0 +1,14 @@
+#!/bin/bash
+
+ip=$(ip -6 addr show eth0 | grep -Eo '(fdaa.*)\/')
+ip=${ip%?}
+
+result=$(curl -s http://[$ip]:5500/flycheck/role | tr -d '"')
+
+if [[ $result == "leader" || $result == "replica" ]]; then
+  echo '{"status": "success", "data": {"ok": true, "message": "'"$result"'"}}'
+  exit 0
+fi
+
+echo '{"status": "failed", "data": {"ok": false, "message": "'"$result"'"}}'
+exit 1
