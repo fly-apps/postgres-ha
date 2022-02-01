@@ -15,42 +15,17 @@ import (
 )
 
 func main() {
-	node, err := flypg.NewNode()
-
 	// Resolve environment
-	pathToEnv := filepath.Join(node.DataDir, ".env")
-
-	file, err := os.Open(pathToEnv)
+	env, err := buildEnv()
 	if err != nil {
-		util.WriteError(err)
-	}
-	defer file.Close()
-
-	env := []string{}
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		env = append(env, scanner.Text())
-	}
-
-	if err := scanner.Err(); err != nil {
 		util.WriteError(err)
 	}
 
 	// Pull cluster configuration
-	args := []string{"clusterdata", "read"}
-	subProcess := exec.Command("stolonctl", args...)
-	subProcess.Env = append(subProcess.Env, env...)
-
-	result, err := subProcess.CombinedOutput()
+	data, err := clusterData(env)
 	if err != nil {
 		util.WriteError(err)
 	}
-
-	var data stolon.ClusterData
-	if err := json.Unmarshal(result, &data); err != nil {
-		util.WriteError(err)
-	}
-
 	// Determine the number of keepers eligible for promotion.
 	eligibleCount := 0
 	for _, keeper := range data.Keepers {
@@ -65,20 +40,17 @@ func main() {
 		util.WriteError(fmt.Errorf("No eligible keepers available to accommodate failover"))
 	}
 
-	// Resolve current master
-	db := data.DBs[data.Cluster.Status.Master]
-	masterKeeper := db.Spec.KeeperUID
+	// Set this so we can compare it later.
+	currentMaster := masterKeeperUID(data)
 
 	// Perform failover
-	failKeeperArgs := []string{"failkeeper", masterKeeper}
-	failKeeperCmd := exec.Command("stolonctl", failKeeperArgs...)
-	failKeeperCmd.Env = append(failKeeperCmd.Env, env...)
-	_, err = failKeeperCmd.CombinedOutput()
+	failKeeperArgs := []string{"failkeeper", currentMaster}
+	_, err = stolonCtl(failKeeperArgs, env)
 	if err != nil {
 		util.WriteError(err)
 	}
 
-	// Verify failove
+	// Verify failover
 	timeout := time.After(10 * time.Second)
 	ticker := time.Tick(1 * time.Second)
 	for {
@@ -86,25 +58,61 @@ func main() {
 		case <-timeout:
 			util.WriteError(fmt.Errorf("timed out verifying failover"))
 		case <-ticker:
-			args := []string{"clusterdata", "read"}
-			subProcess := exec.Command("stolonctl", args...)
-			subProcess.Env = append(subProcess.Env, env...)
-			result, err := subProcess.CombinedOutput()
+			data, err := clusterData(env)
 			if err != nil {
-				util.WriteError(err)
+				util.WriteError(fmt.Errorf("failed to verify failover with error: %w", err))
 			}
 
-			var data stolon.ClusterData
-			if err := json.Unmarshal(result, &data); err != nil {
-				util.WriteError(err)
-			}
-
-			db := data.DBs[data.Cluster.Status.Master]
-			newMasterKeeper := db.Spec.KeeperUID
-			if newMasterKeeper != masterKeeper {
+			if currentMaster != masterKeeperUID(data) {
 				util.WriteOutput("success")
 				return
 			}
 		}
 	}
+}
+
+func clusterData(env []string) (*stolon.ClusterData, error) {
+	args := []string{"clusterdata", "read"}
+	result, err := stolonCtl(args, env)
+	if err != nil {
+		return nil, err
+	}
+	var data stolon.ClusterData
+	if err := json.Unmarshal(result, &data); err != nil {
+		return nil, err
+	}
+
+	return &data, nil
+}
+
+func stolonCtl(args []string, env []string) ([]byte, error) {
+	// args := []string{"clusterdata", "read"}
+	subProcess := exec.Command("stolonctl", args...)
+	subProcess.Env = append(subProcess.Env, env...)
+
+	return subProcess.CombinedOutput()
+}
+
+func masterKeeperUID(data *stolon.ClusterData) string {
+	db := data.DBs[data.Cluster.Status.Master]
+	return db.Spec.KeeperUID
+}
+
+func buildEnv() ([]string, error) {
+	node, err := flypg.NewNode()
+	pathToEnv := filepath.Join(node.DataDir, ".env")
+
+	file, err := os.Open(pathToEnv)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	env := []string{}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		env = append(env, scanner.Text())
+	}
+
+	return env, scanner.Err()
 }

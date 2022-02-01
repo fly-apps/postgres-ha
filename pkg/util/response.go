@@ -1,11 +1,9 @@
 package util
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 )
 
 type Response struct {
@@ -48,29 +46,4 @@ func sendToStdout(resp *Response) {
 	}
 	fmt.Println(string(e))
 	os.Exit(0)
-}
-
-const EnvFile = ".env"
-
-func SetEnvironment() error {
-	file, err := os.Open(EnvFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	fmt.Println(os.Getenv("PATH"))
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		arr := strings.Split(scanner.Text(), "=")
-		fmt.Printf("Setting %s=%s\n", arr[0], arr[1])
-		os.Setenv(arr[0], arr[1])
-	}
-
-	if scanner.Err(); err != nil {
-		return err
-	}
-
-	return nil
 }
