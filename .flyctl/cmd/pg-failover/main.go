@@ -1,32 +1,26 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg"
 	"github.com/fly-examples/postgres-ha/pkg/flypg/stolon"
 	"github.com/fly-examples/postgres-ha/pkg/util"
 )
 
 func main() {
-	// Resolve environment
-	env, err := buildEnv()
+	env, err := util.BuildEnv()
 	if err != nil {
 		util.WriteError(err)
 	}
 
-	// Pull cluster configuration
 	data, err := clusterData(env)
 	if err != nil {
 		util.WriteError(err)
 	}
-	// Determine the number of keepers eligible for promotion.
+
 	eligibleCount := 0
 	for _, keeper := range data.Keepers {
 		if keeper.Status.Healthy && keeper.Status.CanBeMaster != nil {
@@ -43,9 +37,7 @@ func main() {
 	// Set this so we can compare it later.
 	currentMaster := masterKeeperUID(data)
 
-	// Perform failover
-	failKeeperArgs := []string{"failkeeper", currentMaster}
-	_, err = stolonCtl(failKeeperArgs, env)
+	_, err = stolonCtl([]string{"failkeeper", currentMaster}, env)
 	if err != nil {
 		util.WriteError(err)
 	}
@@ -86,7 +78,6 @@ func clusterData(env []string) (*stolon.ClusterData, error) {
 }
 
 func stolonCtl(args []string, env []string) ([]byte, error) {
-	// args := []string{"clusterdata", "read"}
 	subProcess := exec.Command("stolonctl", args...)
 	subProcess.Env = append(subProcess.Env, env...)
 
@@ -96,23 +87,4 @@ func stolonCtl(args []string, env []string) ([]byte, error) {
 func masterKeeperUID(data *stolon.ClusterData) string {
 	db := data.DBs[data.Cluster.Status.Master]
 	return db.Spec.KeeperUID
-}
-
-func buildEnv() ([]string, error) {
-	node, err := flypg.NewNode()
-	pathToEnv := filepath.Join(node.DataDir, ".env")
-
-	file, err := os.Open(pathToEnv)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	env := []string{}
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		env = append(env, scanner.Text())
-	}
-
-	return env, scanner.Err()
 }

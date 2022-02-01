@@ -1,8 +1,0 @@
-#!/bin/bash
-
-export $(cat /data/.env | xargs)
-
-encoded_cmd=$1
-cmd=$(echo -n $encoded_cmd | base64 -d)
-
-stolonctl $cmd
