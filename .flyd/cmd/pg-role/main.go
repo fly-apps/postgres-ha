@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -12,18 +11,12 @@ import (
 )
 
 func main() {
-	ipPtr := flag.String("ip", "", "Target internal ip address. Defaults to the internal ip of the Machine running script.")
-	flag.Parse()
-
-	if *ipPtr == "" {
-		ip, err := privnet.PrivateIPv6()
-		if err != nil {
-			util.WriteError(err)
-		}
-		*ipPtr = ip.String()
+	ip, err := privnet.PrivateIPv6()
+	if err != nil {
+		util.WriteError(err)
 	}
 
-	endpoint := fmt.Sprintf("http://[%s]:5500/flycheck/role", *ipPtr)
+	endpoint := fmt.Sprintf("http://[%s]:5500/flycheck/role", ip.String())
 	resp, err := http.Get(endpoint)
 	if err != nil {
 		util.WriteError(err)
