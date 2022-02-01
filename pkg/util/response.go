@@ -7,34 +7,24 @@ import (
 )
 
 type Response struct {
-	OK     bool         `json:"ok"`
-	Status string       `json:"status"`
-	Data   ResponseData `json:"data"`
-}
-
-type ResponseData struct {
+	Success bool   `json:"success"`
 	Message string `json:"message"`
-	Error   string `json:"error"`
+	Data    string `json:"data"`
 }
 
 func WriteError(err error) {
 	resp := &Response{
-		Status: "failed",
-		OK:     false,
-		Data: ResponseData{
-			Error: err.Error(),
-		},
+		Success: false,
+		Message: err.Error(),
 	}
 	sendToStdout(resp)
 }
 
-func WriteOutput(message string) {
+func WriteOutput(message, data string) {
 	resp := &Response{
-		Status: "success",
-		OK:     true,
-		Data: ResponseData{
-			Message: message,
-		},
+		Success: true,
+		Message: message,
+		Data:    data,
 	}
 	sendToStdout(resp)
 }

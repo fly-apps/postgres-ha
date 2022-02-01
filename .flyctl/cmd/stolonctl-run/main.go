@@ -37,5 +37,5 @@ func main() {
 		util.WriteError(err)
 	}
 
-	util.WriteOutput(string(result))
+	util.WriteOutput("Command completed successfully", string(result))
 }

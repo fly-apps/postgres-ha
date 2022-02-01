@@ -56,7 +56,7 @@ func main() {
 			}
 
 			if currentMaster != masterKeeperUID(data) {
-				util.WriteOutput("success")
+				util.WriteOutput("failover completed successfully", "")
 				return
 			}
 		}

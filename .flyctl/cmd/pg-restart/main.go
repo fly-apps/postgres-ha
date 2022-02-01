@@ -19,5 +19,5 @@ func main() {
 		util.WriteError(fmt.Errorf(subProcess.ProcessState.String()))
 	}
 
-	util.WriteOutput("Success")
+	util.WriteOutput("Restart completed successfully", "")
 }
