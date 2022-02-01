@@ -9,6 +9,12 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/flyadmin ./cmd/flyadmin
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/start ./cmd/start
+
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-restart ./.flyd/cmd/pg-restart
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-role ./.flyd/cmd/pg-role
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-failover ./.flyd/cmd/pg-failover
+
+
 COPY ./bin/* /fly/bin/
 
 
