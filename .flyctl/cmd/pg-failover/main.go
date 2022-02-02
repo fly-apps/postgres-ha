@@ -21,23 +21,23 @@ func main() {
 		util.WriteError(err)
 	}
 
+	// Set this so we can compare it later.
+	currentMasterUID := masterKeeperUID(data)
+
+	// Discover keepers that are eligible for promotion.
 	eligibleCount := 0
 	for _, keeper := range data.Keepers {
-		if keeper.Status.Healthy && keeper.Status.CanBeMaster != nil {
+		if keeper.Status.Healthy && keeper.Status.CanBeMaster != nil && keeper.UID != currentMasterUID {
+			fmt.Printf("Keeper %s is eligible!  Master is %s\n", keeper.UID, currentMasterUID)
 			eligibleCount++
 		}
 	}
 
-	// TODO - Review this logic. The idea is that current master should be eligible
-	// for master, so in order to achieve a failover there should be more than 1.
-	if eligibleCount <= 1 {
+	if eligibleCount == 0 {
 		util.WriteError(fmt.Errorf("No eligible keepers available to accommodate failover"))
 	}
 
-	// Set this so we can compare it later.
-	currentMaster := masterKeeperUID(data)
-
-	_, err = stolonCtl([]string{"failkeeper", currentMaster}, env)
+	_, err = stolonCtl([]string{"failkeeper", currentMasterUID}, env)
 	if err != nil {
 		util.WriteError(err)
 	}
@@ -55,7 +55,7 @@ func main() {
 				util.WriteError(fmt.Errorf("failed to verify failover with error: %w", err))
 			}
 
-			if currentMaster != masterKeeperUID(data) {
+			if currentMasterUID != masterKeeperUID(data) {
 				util.WriteOutput("failover completed successfully", "")
 				return
 			}
