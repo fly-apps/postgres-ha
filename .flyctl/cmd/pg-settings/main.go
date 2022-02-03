@@ -58,23 +58,28 @@ func main() {
 `, settingsValues)
 
 	rows, err := conn.Query(context.Background(), sql)
-	defer rows.Close()
 	if err != nil {
 		util.WriteError(err)
 	}
+	defer rows.Close()
 
-	settings := Settings{}
+	var settings Settings
+	var pgConfMap map[string]string
 	for rows.Next() {
 		s := pgSetting{}
 		if err := rows.Scan(&s.Name, &s.Setting, &s.Context, &s.Unit, &s.ShortDesc, &s.PendingRestart); err != nil {
 			util.WriteError(err)
 		}
+
 		if s.PendingRestart {
-			p, err := findPendingChange(node, *s.Name)
-			if err != nil {
-				util.WriteError(err)
+			if len(pgConfMap) == 0 {
+				pgConfMap, err = resolvePgSettings(node.DataDir)
+				if err != nil {
+					util.WriteError(err)
+				}
 			}
-			s.PendingChange = &p
+			val := pgConfMap[*s.Name]
+			s.PendingChange = &val
 		}
 
 		settings.Settings = append(settings.Settings, s)
@@ -88,22 +93,23 @@ func main() {
 	util.WriteOutput("Success", string(settingsJSON))
 }
 
-func findPendingChange(node *flypg.Node, setting string) (string, error) {
-	file, err := os.Open("/data/postgres/postgresql.conf")
+// TODO - Restrict to just the keys we are interested in. This file is
+// quite small, so it shouldn't really be an issue either way.
+func resolvePgSettings(dataDir string) (map[string]string, error) {
+	pathToFile := fmt.Sprintf("%s/postgres/postgresql.conf", dataDir)
+	file, err := os.Open(pathToFile)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer file.Close()
 
+	settings := map[string]string{}
 	scanner := bufio.NewScanner(file)
-
 	for scanner.Scan() {
 		elemSlice := strings.Split(scanner.Text(), " = ")
-		if elemSlice[0] == setting {
-			val := strings.Trim(elemSlice[1], "'")
-			return val, nil
-		}
+		val := strings.Trim(elemSlice[1], "'")
+		settings[elemSlice[0]] = val
 	}
 
-	return "", nil
+	return settings, err
 }
