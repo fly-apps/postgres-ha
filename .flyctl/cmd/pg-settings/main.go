@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -22,6 +23,7 @@ type pgSetting struct {
 	Context        *string `json:"context,omitempty"`
 	Unit           *string `json:"unit,omitempty"`
 	ShortDesc      *string `json:"short_desc,omitempty"`
+	PendingChange  *string `json:"pending_change,omitempty"`
 	PendingRestart bool    `json:"pending_restart,omitempty"`
 }
 
@@ -67,6 +69,14 @@ func main() {
 		if err := rows.Scan(&s.Name, &s.Setting, &s.Context, &s.Unit, &s.ShortDesc, &s.PendingRestart); err != nil {
 			util.WriteError(err)
 		}
+		if s.PendingRestart {
+			p, err := findPendingChange(node, *s.Name)
+			if err != nil {
+				util.WriteError(err)
+			}
+			s.PendingChange = &p
+		}
+
 		settings.Settings = append(settings.Settings, s)
 	}
 
@@ -76,4 +86,24 @@ func main() {
 	}
 
 	util.WriteOutput("Success", string(settingsJSON))
+}
+
+func findPendingChange(node *flypg.Node, setting string) (string, error) {
+	file, err := os.Open("/data/postgres/postgresql.conf")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		elemSlice := strings.Split(scanner.Text(), " = ")
+		if elemSlice[0] == setting {
+			val := strings.Trim(elemSlice[1], "'")
+			return val, nil
+		}
+	}
+
+	return "", nil
 }
