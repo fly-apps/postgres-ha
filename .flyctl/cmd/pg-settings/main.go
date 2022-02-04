@@ -18,13 +18,17 @@ type pgSettings struct {
 }
 
 type pgSetting struct {
-	Name           *string `json:"name,omitempty"`
-	Setting        *string `json:"setting,omitempty"`
-	Context        *string `json:"context,omitempty"`
-	Unit           *string `json:"unit,omitempty"`
-	ShortDesc      *string `json:"short_desc,omitempty"`
-	PendingChange  *string `json:"pending_change,omitempty"`
-	PendingRestart bool    `json:"pending_restart,omitempty"`
+	Name           *string   `json:"name,omitempty"`
+	Setting        *string   `json:"setting,omitempty"`
+	Context        *string   `json:"context,omitempty"`
+	VarType        *string   `json:"vartype,omitempty"`
+	MinVal         *string   `json:"min_val,omitempty"`
+	MaxVal         *string   `json:"max_val,omitempty"`
+	EnumVals       []*string `json:"enumvals`
+	Unit           *string   `json:"unit,omitempty"`
+	ShortDesc      *string   `json:"short_desc,omitempty"`
+	PendingChange  *string   `json:"pending_change,omitempty"`
+	PendingRestart bool      `json:"pending_restart,omitempty"`
 }
 
 func main() {
@@ -52,7 +56,8 @@ func main() {
 
 	sValues := "'" + strings.Join(sList, "', '") + "'"
 
-	sql := fmt.Sprintf(`select name, setting, context, unit, short_desc, pending_restart 
+	sql := fmt.Sprintf(`select 
+	name, setting, vartype, min_val, max_val, enumvals, context, unit, short_desc, pending_restart 
 	FROM pg_settings WHERE name IN (%s);  	
 `, sValues)
 
@@ -66,7 +71,19 @@ func main() {
 	var confMap map[string]string
 	for rows.Next() {
 		s := pgSetting{}
-		if err := rows.Scan(&s.Name, &s.Setting, &s.Context, &s.Unit, &s.ShortDesc, &s.PendingRestart); err != nil {
+		err := rows.Scan(
+			&s.Name,
+			&s.Setting,
+			&s.VarType,
+			&s.MinVal,
+			&s.MaxVal,
+			&s.EnumVals,
+			&s.Context,
+			&s.Unit,
+			&s.ShortDesc,
+			&s.PendingRestart,
+		)
+		if err != nil {
 			util.WriteError(err)
 		}
 		if s.PendingRestart {
