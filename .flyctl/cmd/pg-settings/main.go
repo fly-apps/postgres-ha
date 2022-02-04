@@ -70,10 +70,9 @@ func main() {
 		if err := rows.Scan(&s.Name, &s.Setting, &s.Context, &s.Unit, &s.ShortDesc, &s.PendingRestart); err != nil {
 			util.WriteError(err)
 		}
-
 		if s.PendingRestart {
 			if len(pgConfMap) == 0 {
-				pgConfMap, err = resolvePgSettings(node.DataDir)
+				pgConfMap, err = populatePgSettings(node.DataDir)
 				if err != nil {
 					util.WriteError(err)
 				}
@@ -93,9 +92,7 @@ func main() {
 	util.WriteOutput("Success", string(settingsJSON))
 }
 
-// TODO - Restrict to just the keys we are interested in. This file is
-// quite small, so it shouldn't really be an issue either way.
-func resolvePgSettings(dataDir string) (map[string]string, error) {
+func populatePgSettings(dataDir string) (map[string]string, error) {
 	pathToFile := fmt.Sprintf("%s/postgres/postgresql.conf", dataDir)
 	file, err := os.Open(pathToFile)
 	if err != nil {
