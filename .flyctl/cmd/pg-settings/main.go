@@ -13,7 +13,7 @@ import (
 	"github.com/fly-examples/postgres-ha/pkg/util"
 )
 
-type Settings struct {
+type pgSettings struct {
 	Settings []pgSetting `json:"settings"`
 }
 
@@ -30,9 +30,14 @@ type pgSetting struct {
 func main() {
 	encodedArg := os.Args[1]
 
-	settingsBytes, err := base64.StdEncoding.DecodeString(encodedArg)
+	sBytes, err := base64.StdEncoding.DecodeString(encodedArg)
 	if err != nil {
 		util.WriteError(err)
+	}
+
+	sList := strings.Split(string(sBytes), ",")
+	if len(sList) == 0 {
+		util.WriteError(fmt.Errorf("no settings were specified"))
 	}
 
 	node, err := flypg.NewNode()
@@ -45,17 +50,11 @@ func main() {
 		util.WriteError(err)
 	}
 
-	settingList := strings.Split(string(settingsBytes), ",")
-	if len(settingList) == 0 {
-		util.WriteError(fmt.Errorf("no settings were specified"))
-	}
+	sValues := "'" + strings.Join(sList, "', '") + "'"
 
-	settingsValues := "'" + strings.Join(settingList, "', '") + "'"
-
-	sql := fmt.Sprintf(`
-		select name, setting, context, unit, short_desc, pending_restart FROM pg_settings
-		WHERE name IN (%s);  	
-`, settingsValues)
+	sql := fmt.Sprintf(`select name, setting, context, unit, short_desc, pending_restart 
+	FROM pg_settings WHERE name IN (%s);  	
+`, sValues)
 
 	rows, err := conn.Query(context.Background(), sql)
 	if err != nil {
@@ -63,33 +62,33 @@ func main() {
 	}
 	defer rows.Close()
 
-	var settings Settings
-	var pgConfMap map[string]string
+	var settings pgSettings
+	var confMap map[string]string
 	for rows.Next() {
 		s := pgSetting{}
 		if err := rows.Scan(&s.Name, &s.Setting, &s.Context, &s.Unit, &s.ShortDesc, &s.PendingRestart); err != nil {
 			util.WriteError(err)
 		}
 		if s.PendingRestart {
-			if len(pgConfMap) == 0 {
-				pgConfMap, err = populatePgSettings(node.DataDir)
+			if len(confMap) == 0 {
+				confMap, err = populatePgSettings(node.DataDir)
 				if err != nil {
 					util.WriteError(err)
 				}
 			}
-			val := pgConfMap[*s.Name]
+			val := confMap[*s.Name]
 			s.PendingChange = &val
 		}
 
 		settings.Settings = append(settings.Settings, s)
 	}
 
-	settingsJSON, err := json.Marshal(settings)
+	respBytes, err := json.Marshal(settings)
 	if err != nil {
 		util.WriteError(err)
 	}
 
-	util.WriteOutput("Success", string(settingsJSON))
+	util.WriteOutput("Success", string(respBytes))
 }
 
 func populatePgSettings(dataDir string) (map[string]string, error) {
@@ -100,13 +99,13 @@ func populatePgSettings(dataDir string) (map[string]string, error) {
 	}
 	defer file.Close()
 
-	settings := map[string]string{}
+	sMap := map[string]string{}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		elemSlice := strings.Split(scanner.Text(), " = ")
-		val := strings.Trim(elemSlice[1], "'")
-		settings[elemSlice[0]] = val
+		sS := strings.Split(scanner.Text(), " = ")
+		val := strings.Trim(sS[1], "'")
+		sMap[sS[0]] = val
 	}
 
-	return settings, err
+	return sMap, err
 }
