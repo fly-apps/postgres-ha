@@ -26,6 +26,9 @@ This app requires a few secret environment variables. Generate a secure string f
 
 > `fly secrets set SU_PASSWORD=<PASSWORD> REPL_PASSWORD=<PASSWORD> OPERATOR_PASSWORD=<PASSWORD>`
 
+### Set the PRIMARY_REGION environment variable within your fly.toml 
+The PRIMARY_REGION value lets Stolon know which Postgres instances are eligible for election in the event of a failover.  If this value is not set to the correct region, your cluster may not boot properly.   
+
 ## Deploy one instance
 
 First, get one instance deployed in your preferred start region.
