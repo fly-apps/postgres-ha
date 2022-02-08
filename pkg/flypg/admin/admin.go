@@ -2,9 +2,7 @@ package admin
 
 import (
 	"context"
-	"crypto/md5"
 	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v4"
 )
@@ -88,15 +86,6 @@ type UserInfo struct {
 	ReplUser     bool     `json:"repluser"`
 	Databases    []string `json:"databases"`
 	PasswordHash string   `json:"-"`
-}
-
-func (ui UserInfo) IsPassword(password string) bool {
-	if !strings.HasPrefix(ui.PasswordHash, "md5") {
-		return false
-	}
-
-	encoded := fmt.Sprintf("md5%x", md5.Sum([]byte(password+ui.Username)))
-	return encoded == ui.PasswordHash
 }
 
 type DbInfo struct {

@@ -99,14 +99,14 @@ func main() {
 						continue
 					}
 
-					if err = initOperator(context.TODO(), pg, node.OperatorCredentials); err != nil {
+					if err = initUser(context.TODO(), pg, node.OperatorCredentials); err != nil {
 						fmt.Println("error configuring operator user:", err)
 						continue
 					}
 
 					// Stolon handles replUser creation during initial bootstrap.
 					if cfg.InitMode == flypg.InitModeExisting {
-						if err = initReplicationUser(context.TODO(), pg, node.ReplCredentials); err != nil {
+						if err = initUser(context.TODO(), pg, node.ReplCredentials); err != nil {
 							fmt.Println("error configuring replication user:", err)
 							continue
 						}
@@ -194,11 +194,11 @@ func writeStolonctlEnvFile(n *flypg.Node, filename string) {
 	os.WriteFile(filename, b.Bytes(), 0644)
 }
 
-func initOperator(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) error {
-	fmt.Println("configuring operator")
+func initUser(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) error {
+	fmt.Printf("configuring user %q\n", creds.Username)
 
 	if creds.Password == "" {
-		fmt.Println("OPERATOR_PASSWORD not set, cannot configure operator")
+		fmt.Printf("No password found for user %q\n", creds.Username)
 		return nil
 	}
 
@@ -207,103 +207,49 @@ func initOperator(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) er
 		return err
 	}
 
-	var operatorUser *admin.UserInfo
+	var user *admin.UserInfo
 
 	for _, u := range users {
 		if u.Username == creds.Username {
-			operatorUser = &u
+			user = &u
 			break
 		}
 	}
 
-	if operatorUser == nil {
-		fmt.Println("operator user does not exist, creating")
+	if user == nil {
 		err = admin.CreateUser(ctx, pg, creds.Username, creds.Password)
 		if err != nil {
 			return err
 		}
-		operatorUser, err = admin.FindUser(ctx, pg, creds.Username)
+		user, err = admin.FindUser(ctx, pg, creds.Username)
 		if err != nil {
 			return err
 		}
 	}
 
-	if operatorUser == nil {
+	if user == nil {
 		return errors.New("error creating operator: user not found")
 	}
 
-	if !operatorUser.SuperUser {
-		fmt.Println("operator is not a superuser, fixing")
+	if creds.SuperUser && !user.SuperUser {
+		fmt.Printf("%s is not a superuser, fixing\n", user.Username)
 		if err := admin.GrantSuperuser(ctx, pg, creds.Username); err != nil {
 			return err
 		}
 	}
 
-	if !operatorUser.IsPassword(creds.Password) {
-		fmt.Println("operator password does not match config, changing")
-		if err := admin.ChangePassword(ctx, pg, creds.Username, creds.Password); err != nil {
-			return err
-		}
-	}
-
-	fmt.Println("operator ready!")
-
-	return nil
-}
-
-func initReplicationUser(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) error {
-	fmt.Println("configuring repluser")
-
-	if creds.Password == "" {
-		fmt.Println("REPL_PASSWORD not set, cannot configure operator")
-		return nil
-	}
-
-	users, err := admin.ListUsers(ctx, pg)
-	if err != nil {
-		return err
-	}
-
-	var replUser *admin.UserInfo
-
-	for _, u := range users {
-		if u.Username == creds.Username {
-			replUser = &u
-			break
-		}
-	}
-
-	if replUser == nil {
-		fmt.Println("repl user does not exist, creating")
-		err = admin.CreateUser(ctx, pg, creds.Username, creds.Password)
-		if err != nil {
-			return err
-		}
-		replUser, err = admin.FindUser(ctx, pg, creds.Username)
-		if err != nil {
-			return err
-		}
-	}
-
-	if replUser == nil {
-		return errors.New("error creating replication user, user not found")
-	}
-
-	if !replUser.ReplUser {
-		fmt.Println("repluser does not have REPLICATION role, fixing")
+	if creds.Replication && !user.ReplUser {
+		fmt.Printf("%s does not have REPLICATION role, fixing\n", user.Username)
 		if err := admin.GrantReplication(ctx, pg, creds.Username); err != nil {
 			return err
 		}
 	}
 
-	if !replUser.IsPassword(creds.Password) {
-		fmt.Println("repluser password does not match config, changing")
-		if err := admin.ChangePassword(ctx, pg, creds.Username, creds.Password); err != nil {
-			return err
-		}
+	if err := admin.ChangePassword(ctx, pg, creds.Username, creds.Password); err != nil {
+		return err
 	}
 
-	fmt.Println("replication ready!")
+	fmt.Printf("finished configuring user %q\n", creds.Username)
 
 	return nil
 }

@@ -22,8 +22,10 @@ const (
 )
 
 type Credentials struct {
-	Username string
-	Password string
+	Username    string
+	Password    string
+	SuperUser   bool
+	Replication bool
 }
 
 type Node struct {
@@ -120,21 +122,27 @@ func NewNode() (*Node, error) {
 	}
 
 	node.SUCredentials = Credentials{
-		Username: "flypgadmin",
-		Password: os.Getenv("SU_PASSWORD"),
+		Username:    "flypgadmin",
+		Password:    os.Getenv("SU_PASSWORD"),
+		SuperUser:   true,
+		Replication: false,
 	}
 
 	node.ReplCredentials = Credentials{
-		Username: "repluser",
-		Password: os.Getenv("REPL_PASSWORD"),
+		Username:    "repluser",
+		Password:    os.Getenv("REPL_PASSWORD"),
+		SuperUser:   false,
+		Replication: true,
 	}
 
 	// The postgres user is optional and will only be created if the
 	// OPERATOR_PASSWORD environment variable is present.
 	if pwd, exists := os.LookupEnv("OPERATOR_PASSWORD"); exists {
 		node.OperatorCredentials = Credentials{
-			Username: "postgres",
-			Password: pwd,
+			Username:    "postgres",
+			Password:    pwd,
+			SuperUser:   true,
+			Replication: false,
 		}
 	}
 
