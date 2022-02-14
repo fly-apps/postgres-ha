@@ -150,7 +150,7 @@ func listUsers(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) 
 }
 
 func createUser(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
-	sql := fmt.Sprintf(`CREATE USER %s WITH LOGIN PASSWORD '%s'`, input["username"], input["password"])
+	sql := fmt.Sprintf(`CREATE USER %q WITH LOGIN PASSWORD '%s'`, input["username"], input["password"])
 
 	_, err := pg.Exec(context.Background(), sql)
 	if err != nil {
@@ -165,7 +165,7 @@ func createUser(pg *pgx.Conn, input map[string]interface{}) (interface{}, error)
 }
 
 func deleteUser(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
-	sql := fmt.Sprintf(`DROP USER IF EXISTS %s`, input["username"])
+	sql := fmt.Sprintf(`DROP USER IF EXISTS %q`, input["username"])
 
 	_, err := pg.Exec(context.Background(), sql)
 	if err != nil {
@@ -176,7 +176,7 @@ func deleteUser(pg *pgx.Conn, input map[string]interface{}) (interface{}, error)
 }
 
 func createDatabase(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
-	sql := fmt.Sprintf("CREATE DATABASE %s;", input["name"])
+	sql := fmt.Sprintf("CREATE DATABASE %q;", input["name"])
 
 	_, err := pg.Exec(context.Background(), sql)
 	if err != nil {
@@ -187,7 +187,7 @@ func createDatabase(pg *pgx.Conn, input map[string]interface{}) (interface{}, er
 }
 
 func deleteDatabase(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
-	sql := fmt.Sprintf("DROP DATABASE %s;", input["name"])
+	sql := fmt.Sprintf("DROP DATABASE %q;", input["name"])
 
 	_, err := pg.Exec(context.Background(), sql)
 	if err != nil {
@@ -198,7 +198,7 @@ func deleteDatabase(pg *pgx.Conn, input map[string]interface{}) (interface{}, er
 }
 
 func grantAccess(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
-	sql := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %s TO %s", input["database"], input["username"])
+	sql := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %q TO %q", input["database"], input["username"])
 
 	_, err := pg.Exec(context.Background(), sql)
 	if err != nil {
@@ -209,7 +209,7 @@ func grantAccess(pg *pgx.Conn, input map[string]interface{}) (interface{}, error
 }
 
 func revokeAccess(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
-	sql := fmt.Sprintf("REVOKE ALL PRIVILEGES ON DATABASE %s FROM %s", input["database"], input["username"])
+	sql := fmt.Sprintf("REVOKE ALL PRIVILEGES ON DATABASE %q FROM %q", input["database"], input["username"])
 
 	_, err := pg.Exec(context.Background(), sql)
 	if err != nil {
@@ -220,7 +220,7 @@ func revokeAccess(pg *pgx.Conn, input map[string]interface{}) (interface{}, erro
 }
 
 func grantSuperuser(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
-	sql := fmt.Sprintf("ALTER USER %s WITH SUPERUSER;", input["username"])
+	sql := fmt.Sprintf("ALTER USER %q WITH SUPERUSER;", input["username"])
 
 	_, err := pg.Exec(context.Background(), sql)
 	if err != nil {
@@ -231,7 +231,7 @@ func grantSuperuser(pg *pgx.Conn, input map[string]interface{}) (interface{}, er
 }
 
 func revokeSuperuser(pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
-	sql := fmt.Sprintf("ALTER USER %s WITH NOSUPERUSER;", input["username"])
+	sql := fmt.Sprintf("ALTER USER %q WITH NOSUPERUSER;", input["username"])
 
 	_, err := pg.Exec(context.Background(), sql)
 	if err != nil {
