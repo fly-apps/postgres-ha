@@ -137,7 +137,7 @@ func InitConfig(filename string) (*Config, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse PG_MAJOR version: %v", err)
 			}
-
+			// Let the WAL manager handle WAL retention requirements for replication slots.
 			if version >= 13 {
 				cfg.PGParameters["wal_keep_size"] = "0"
 			}
