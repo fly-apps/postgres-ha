@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"syscall"
 
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/v3/mem"
@@ -86,7 +87,6 @@ func InitConfig(filename string) (*Config, error) {
 		if keeperState.UID != "" {
 			existingConfig["keeperUID"] = keeperState.UID
 		}
-
 	}
 
 	cfg = Config{
@@ -104,7 +104,47 @@ func InitConfig(filename string) (*Config, error) {
 			"max_worker_processes":            "8",
 			"max_parallel_workers":            "8",
 			"max_parallel_workers_per_gather": "2",
+			"wal_compression":                 "on",
+			"wal_recycle":                     "off",
 		},
+	}
+
+	if initMode == InitModeNew {
+		var stat syscall.Statfs_t
+		if err = syscall.Statfs("/data", &stat); err != nil {
+			return nil, err
+		}
+		diskSizeBytes := stat.Blocks * uint64(stat.Bsize)
+
+		// Set max_wal_size to 10% of disk capacity.
+		maxWalBytes := (float64(diskSizeBytes) * 0.1)
+		maxWalMb := maxWalBytes / (1024 * 1024)
+		cfg.PGParameters["max_wal_size"] = fmt.Sprintf("%dMB", int(maxWalMb))
+
+		// Set min_wal_size to 25% of max_wal_size
+		minWalBytes := (maxWalBytes * 0.25)
+		minWalMb := int(minWalBytes / (1024 * 1024))
+
+		// Stolon hardcodes the segment size to 16mb and min_wal_size must be at least twice the size.
+		if minWalMb < 32 {
+			minWalMb = 32
+		}
+		cfg.PGParameters["min_wal_size"] = fmt.Sprintf("%dMB", int(minWalMb))
+
+		versionStr := os.Getenv("PG_MAJOR")
+		if versionStr != "" {
+			version, err := strconv.Atoi(versionStr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse PG_MAJOR version: %v", err)
+			}
+			// Let the WAL manager handle WAL retention requirements for replication slots.
+			if version >= 13 {
+				cfg.PGParameters["wal_keep_size"] = "0"
+			}
+			if version == 12 {
+				cfg.PGParameters["wal_keep_segments"] = "0"
+			}
+		}
 	}
 
 	writeJson(os.Stdout, cfg)
