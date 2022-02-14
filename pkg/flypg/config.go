@@ -105,7 +105,6 @@ func InitConfig(filename string) (*Config, error) {
 			"max_parallel_workers":            "8",
 			"max_parallel_workers_per_gather": "2",
 			"wal_compression":                 "on",
-			"wal_recycle":                     "off",
 		},
 	}
 
