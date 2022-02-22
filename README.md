@@ -63,16 +63,19 @@ postgres://postgres:<operator_password>@<postgres-app-name>.internal:5432/<datab
 
 ### Connecting to Postgres from your local machine
 
-1. Setup WireGuard Tunnel ( If you haven’t already )
-Follow the steps provided here: https://fly.io/docs/reference/private-networking/#step-by-step
+1. Forward the server port to your local system with [`flyctl proxy`](https://fly.io/docs/flyctl/proxy/):
+
+```
+flyctl proxy 5432 -a <postgres-app-name>
+```
 
 2. Postgres needs to be installed on your local machine.
 
-3. Use psql to connect to your Postgres instance.
-```
-psql postgres://postgres:<operator_password>@<postgres-app-name>.internal:5432
-```
+3. Use psql to connect to your Postgres instance on the forwarded port.
 
+```
+psql postgres://postgres:<password>@localhost:5432
+```
 
 ## Having trouble?
 
