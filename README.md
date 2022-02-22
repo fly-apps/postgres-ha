@@ -74,7 +74,7 @@ flyctl proxy 5432 -a <postgres-app-name>
 3. Use psql to connect to your Postgres instance on the forwarded port.
 
 ```
-psql postgres://postgres:<password>@localhost:5432
+psql postgres://postgres:<operator_password>@localhost:5432
 ```
 
 ## Having trouble?
