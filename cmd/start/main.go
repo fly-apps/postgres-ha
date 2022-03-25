@@ -177,7 +177,6 @@ func main() {
 	svisor.StopOnSignal(syscall.SIGINT, syscall.SIGTERM)
 
 	svisor.StartHttpListener()
-	svisor.StartCommandsHandler()
 
 	err = svisor.Run()
 	if err != nil {

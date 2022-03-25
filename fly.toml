@@ -1,6 +1,4 @@
-# fly.toml file generated for http-cmd-pg on 2022-03-24T17:36:09Z
-
-app = "http-cmd-pg"
+app = "postgres-ha-example"
 
 kill_signal = "SIGTERM"
 kill_timeout = 300

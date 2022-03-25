@@ -3,6 +3,7 @@ module github.com/fly-examples/postgres-ha
 go 1.16
 
 require (
+	github.com/go-chi/chi/v5 v5.0.7 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/jackc/pgtype v1.6.2 // indirect
 	github.com/jackc/pgx/v4 v4.10.1

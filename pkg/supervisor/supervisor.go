@@ -9,8 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fly-examples/postgres-ha/pkg/commands"
-	"github.com/fly-examples/postgres-ha/pkg/flycheck"
+	"github.com/fly-examples/postgres-ha/pkg/server"
 	"github.com/google/shlex"
 	"golang.org/x/sync/errgroup"
 )
@@ -128,12 +127,7 @@ func (h *Supervisor) waitForExit(ctx context.Context) {
 }
 
 func (h *Supervisor) StartHttpListener() {
-	go flycheck.StartCheckListener()
-	// go commands.StartCommandsHandler()
-}
-
-func (h *Supervisor) StartCommandsHandler() {
-	go commands.StartCommandsHandler()
+	go server.StartHttpServer()
 }
 
 func (h *Supervisor) Run() error {

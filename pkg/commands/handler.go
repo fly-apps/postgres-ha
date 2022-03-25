@@ -3,33 +3,32 @@ package commands
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
 	"github.com/fly-examples/postgres-ha/pkg/render"
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v4"
 )
 
 const Port = 5600
 
-func StartCommandsHandler() {
+func Handler() http.Handler {
+	r := chi.NewRouter()
 
-	http.HandleFunc("/commands/users", handleListUsers)
-	http.HandleFunc("/commands/users/create", handleCreateUser)
-	http.HandleFunc("/commands/users/delete", handleDeleteUser)
+	r.Route("/users", func(r chi.Router) {
+		r.Get("/", handleListUsers)
+		r.Post("/create", handleCreateUser)
+		r.Delete("/delete", handleDeleteUser)
+	})
 
-	http.HandleFunc("/commands/users/grant", handleGrantAccess)
-	http.HandleFunc("/commands/users/revoke", handleRevokeAccess)
-	http.HandleFunc("/commands/users/superuser/grant", handleGrantSuperuser)
-	http.HandleFunc("/commands/users/superuser/revoke", handleRevokeSuperuser)
+	r.Route("/databases", func(r chi.Router) {
+		r.Get("/", handleListDatabases)
+		r.Post("/create", handleCreateDatabase)
+		r.Delete("/delete", handleDeleteDatabase)
+	})
 
-	http.HandleFunc("/commands/databases", handleListDatabases)
-	http.HandleFunc("/commands/databases/create", handleCreateDatabase)
-	http.HandleFunc("/commands/databases/delete", handleDeleteDatabase)
-
-	fmt.Printf("Listening on port %d", Port)
-	http.ListenAndServe(fmt.Sprintf(":%d", Port), nil)
+	return r
 }
 
 type Response struct {
