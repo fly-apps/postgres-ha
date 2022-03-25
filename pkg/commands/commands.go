@@ -4,17 +4,7 @@ package commands
 import (
 	"context"
 	"fmt"
-
-	"github.com/jackc/pgx/v4"
 )
-
-type Commands struct {
-	pg *pgx.Conn
-}
-
-func New(pg *pgx.Conn) *Commands {
-	return &Commands{pg: pg}
-}
 
 func ListDatabases(ctx context.Context, input map[string]interface{}) (interface{}, error) {
 	pg, err := getConnection(ctx)
