@@ -106,19 +106,21 @@ type DbInfo struct {
 
 func ListUsers(ctx context.Context, pg *pgx.Conn) ([]UserInfo, error) {
 	sql := `
-		select u.usename,
-			usesuper as superuser,
-			userepl as repluser,
-			a.rolpassword as passwordhash,
-      (select array_agg(d.datname::text order by d.datname)
-				from pg_database d
+	select u.usename,
+		usesuper as superuser,
+		userepl as repluser,
+		a.rolpassword as passwordhash,
+    (
+		select array_agg(d.datname::text order by d.datname)
+			from pg_database d
 				WHERE datistemplate = false
 				AND has_database_privilege(u.usename, d.datname, 'CONNECT')
-			) as allowed_databases
-			from pg_user u
-			join pg_authid a on u.usesysid = a.oid
-			order by u.usename
-			`
+	) as 
+		allowed_databases
+	from 
+		pg_user u join pg_authid a on u.usesysid = a.oid 
+	order by u.usename
+	`
 
 	rows, err := pg.Query(ctx, sql)
 	if err != nil {
@@ -140,16 +142,74 @@ func ListUsers(ctx context.Context, pg *pgx.Conn) ([]UserInfo, error) {
 }
 
 func FindUser(ctx context.Context, pg *pgx.Conn, username string) (*UserInfo, error) {
-	users, err := ListUsers(ctx, pg)
-	if err != nil {
+	sql := `
+	select 
+		u.usename,
+        usesuper as superuser,
+        userepl as repluser,
+    	a.rolpassword as passwordhash,
+    (
+        select 
+			array_agg(d.datname::text order by d.datname)
+        	from pg_database d
+        WHERE datistemplate = false AND has_database_privilege(u.usename, d.datname, 'CONNECT')
+    ) as 
+		allowed_databases
+    FROM pg_user u join pg_authid a on u.usesysid = a.oid where u.usename='%s';`
+
+	sql = fmt.Sprintf(sql, username)
+
+	row := pg.QueryRow(ctx, sql)
+
+	user := new(UserInfo)
+	if err := row.Scan(user.Username, user.SuperUser, user.ReplUser, user.PasswordHash, user.Databases); err != nil {
 		return nil, err
 	}
 
-	for _, u := range users {
-		if u.Username == username {
-			return &u, nil
-		}
+	return user, nil
+
+}
+
+func DeleteUser(ctx context.Context, pg *pgx.Conn, username string) error {
+	sql := fmt.Sprintf("DROP USER %s", username)
+
+	_, err := pg.Exec(ctx, sql)
+	if err != nil {
+		return err
 	}
 
-	return nil, nil
+	return nil
+}
+
+func CreateDatabase(ctx context.Context, pg *pgx.Conn, name string) error {
+	sql := fmt.Sprintf("CREATE DATABASE %s;", name)
+
+	_, err := pg.Exec(ctx, sql)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func DeleteDatabase(ctx context.Context, pg *pgx.Conn, name string) error {
+	sql := fmt.Sprintf("DROP DATABASE %s;", name)
+
+	_, err := pg.Exec(ctx, sql)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GrantAccess(ctx context.Context, pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
+	sql := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %q TO %q", input["database"], input["username"])
+
+	_, err := pg.Exec(context.Background(), sql)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
