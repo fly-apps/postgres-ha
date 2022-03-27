@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/signal"
 	"os/user"
 	"path/filepath"
 	"strconv"
@@ -18,10 +19,15 @@ import (
 	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
 	"github.com/fly-examples/postgres-ha/pkg/flyunlock"
 	"github.com/fly-examples/postgres-ha/pkg/supervisor"
+	"github.com/gofrs/uuid"
 	"github.com/jackc/pgx/v4"
+
+	stolonCmd "github.com/sorintlab/stolon/cmd"
+	cmdSentinel "github.com/sorintlab/stolon/cmd/sentinel/cmd"
 )
 
 func main() {
+	ctx := context.Background()
 
 	if os.Getenv("FLY_RESTORED_FROM") != "" {
 		if err := manageRestore(); err != nil {
@@ -60,7 +66,7 @@ func main() {
 		panic(err)
 	}
 
-	stolonCmd := func(cmd string) string {
+	stolonCmdOld := func(cmd string) string {
 		return "gosu stolon " + cmd
 	}
 
@@ -142,19 +148,34 @@ func main() {
 		keeperEnv["STKEEPER_CAN_BE_SYNCHRONOUS_REPLICA"] = "false"
 	}
 
-	svisor.AddProcess("keeper", stolonCmd("stolon-keeper"), supervisor.WithEnv(keeperEnv), supervisor.WithRestart(5, 5*time.Second))
+	svisor.AddProcess("keeper", stolonCmdOld("stolon-keeper"), supervisor.WithEnv(keeperEnv), supervisor.WithRestart(5, 5*time.Second))
 
-	sentinelEnv := map[string]string{
-		"STSENTINEL_DATA_DIR":             node.DataDir,
-		"STSENTINEL_INITIAL_CLUSTER_SPEC": "/fly/cluster-spec.json",
-		"STSENTINEL_LOG_LEVEL":            "info",
-		"STSENTINEL_CLUSTER_NAME":         node.AppName,
-		"STSENTINEL_STORE_BACKEND":        node.BackendStore,
-		"STSENTINEL_STORE_URL":            node.BackendStoreURL.String(),
-		"STSENTINEL_STORE_NODE":           node.StoreNode,
-	}
+	// sentinelEnv := map[string]string{
+	// 	"STSENTINEL_DATA_DIR":             node.DataDir,
+	// 	"STSENTINEL_INITIAL_CLUSTER_SPEC": "/fly/cluster-spec.json",
+	// 	"STSENTINEL_LOG_LEVEL":            "info",
+	// 	"STSENTINEL_CLUSTER_NAME":         node.AppName,
+	// 	"STSENTINEL_STORE_BACKEND":        node.BackendStore,
+	// 	"STSENTINEL_STORE_URL":            node.BackendStoreURL.String(),
+	// 	"STSENTINEL_STORE_NODE":           node.StoreNode,
+	// }
 
-	svisor.AddProcess("sentinel", stolonCmd("stolon-sentinel"), supervisor.WithEnv(sentinelEnv), supervisor.WithRestart(0, 3*time.Second))
+	go startAndSuperviseSentinel(ctx, UID(), &cmdSentinel.Config{
+		CommonConfig: stolonCmd.CommonConfig{
+			IsStolonCtl:  true, // I guess!
+			StoreBackend: node.BackendStore,
+			StorePrefix:  "stolon/cluster", // default value set in stolonctl
+			StoreURL:     node.BackendStoreURL.String(),
+			StoreNode:    node.StoreNode,
+			ClusterName:  node.AppName,
+			LogLevel:     "info",
+			StoreTimeout: 5 * time.Second, // default value set in stolonctl
+		},
+		InitialClusterSpecFile: "/fly/cluster-spec.json",
+		Debug:                  false,
+	})
+
+	// svisor.AddProcess("sentinel", stolonCmdOld("stolon-sentinel"), supervisor.WithEnv(sentinelEnv), supervisor.WithRestart(0, 3*time.Second))
 
 	proxyEnv := map[string]string{
 		"FLY_APP_NAME":   os.Getenv("FLY_APP_NAME"),
@@ -191,7 +212,9 @@ func writeStolonctlEnvFile(n *flypg.Node, filename string) {
 	b.WriteString("STOLONCTL_STORE_URL=" + n.BackendStoreURL.String() + "\n")
 	b.WriteString("STOLONCTL_STORE_NODE=" + n.StoreNode + "\n")
 
-	os.WriteFile(filename, b.Bytes(), 0644)
+	if err := os.WriteFile(filename, b.Bytes(), 0644); err != nil {
+		panic(fmt.Errorf("could not write config file: %v\n", err))
+	}
 }
 
 func initOperator(ctx context.Context, pg *pgx.Conn, creds flypg.Credentials) error {
@@ -334,4 +357,51 @@ func isActiveRestore() (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func UID() string {
+	u, err := uuid.NewV4()
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf("%x", u[:4])
+}
+
+func startAndSuperviseSentinel(ctx context.Context, uid string, config *cmdSentinel.Config) {
+	sigch := make(chan os.Signal)
+	signal.Notify(sigch, syscall.SIGINT, syscall.SIGTERM)
+
+	end := make(chan bool)
+	done := false
+
+	go func() {
+		for sig := range sigch {
+			fmt.Printf("Got %s, stopping\n", sig)
+			done = true
+			end <- true
+		}
+	}()
+
+	for {
+		if done {
+			fmt.Println("we're done for sentinel")
+			break
+		}
+		var confCopy *cmdSentinel.Config
+		*confCopy = *config
+		sentinel, err := cmdSentinel.NewSentinel(uid, confCopy, end)
+
+		if err != nil {
+			panic(fmt.Errorf("could not start sentinel: %v\n", err))
+		}
+
+		sentinel.Start(ctx, func(isLeader bool) {
+			if isLeader {
+				fmt.Println("I AM LEADER")
+			} else {
+				fmt.Println("I AM FOLLOWER")
+			}
+		})
+	}
+
 }
