@@ -203,6 +203,26 @@ func DeleteDatabase(ctx context.Context, pg *pgx.Conn, name string) error {
 	return nil
 }
 
+func FindDatabase(ctx context.Context, pg *pgx.Conn, name string) (*DbInfo, error) {
+	sql := `
+	SELECT 
+		datname, 
+		(SELECT array_agg(u.usename::text order by u.usename) FROM pg_user u WHERE has_database_privilege(u.usename, d.datname, 'CONNECT')) as allowed_users 
+	FROM pg_database d WHERE d.datname='%s';
+	`
+
+	sql = fmt.Sprintf(sql, name)
+
+	row := pg.QueryRow(ctx, sql)
+
+	db := new(DbInfo)
+	if err := row.Scan(&db.Name, &db.Users); err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
 func GrantAccess(ctx context.Context, pg *pgx.Conn, database, username string) error {
 	sql := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %q TO %q", database, username)
 

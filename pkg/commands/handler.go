@@ -24,6 +24,7 @@ func Handler() http.Handler {
 
 	r.Route("/databases", func(r chi.Router) {
 		r.Get("/list", handleListDatabases)
+		r.Get("/{name}", handleFindDatabase)
 		r.Post("/create", handleCreateDatabase)
 		r.Post("/grant", handleGrantAccess)
 		r.Delete("/delete/{name}", handleDeleteDatabase)
@@ -81,6 +82,24 @@ func handleFindUser(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 
 	res, err := admin.FindUser(r.Context(), pg, name)
+	if err != nil {
+		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
+		return
+	}
+	render.JSON(w, &Response{Result: res}, http.StatusOK)
+}
+
+func handleFindDatabase(w http.ResponseWriter, r *http.Request) {
+	pg, close, err := getConnection(r.Context())
+	if err != nil {
+		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
+		return
+	}
+	defer close()
+
+	name := chi.URLParam(r, "name")
+
+	res, err := admin.FindDatabase(r.Context(), pg, name)
 	if err != nil {
 		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
 		return
