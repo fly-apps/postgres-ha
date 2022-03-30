@@ -203,13 +203,13 @@ func DeleteDatabase(ctx context.Context, pg *pgx.Conn, name string) error {
 	return nil
 }
 
-func GrantAccess(ctx context.Context, pg *pgx.Conn, input map[string]interface{}) (interface{}, error) {
-	sql := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %q TO %q", input["database"], input["username"])
+func GrantAccess(ctx context.Context, pg *pgx.Conn, database, username string) error {
+	sql := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %q TO %q", database, username)
 
-	_, err := pg.Exec(context.Background(), sql)
+	_, err := pg.Exec(ctx, sql)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	return true, nil
+	return nil
 }

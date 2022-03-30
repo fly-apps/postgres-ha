@@ -1,4 +1,4 @@
-app = "http-cmd-pg"
+app = "postgres-ha-example"
 
 kill_signal = "SIGTERM"
 kill_timeout = 300

@@ -25,6 +25,7 @@ func Handler() http.Handler {
 	r.Route("/databases", func(r chi.Router) {
 		r.Get("/list", handleListDatabases)
 		r.Post("/create", handleCreateDatabase)
+		r.Post("/grant", handleGrantAccess)
 		r.Delete("/delete/{name}", handleDeleteDatabase)
 	})
 
@@ -37,11 +38,13 @@ type Response struct {
 }
 
 func handleListDatabases(w http.ResponseWriter, r *http.Request) {
-	pg, err := getConnection(r.Context())
+	pg, close, err := getConnection(r.Context())
 	if err != nil {
 		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
 		return
 	}
+	defer close()
+
 	res, err := admin.ListDatabases(r.Context(), pg)
 	if err != nil {
 		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
@@ -51,11 +54,13 @@ func handleListDatabases(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleListUsers(w http.ResponseWriter, r *http.Request) {
-	pg, err := getConnection(r.Context())
+	pg, close, err := getConnection(r.Context())
 	if err != nil {
 		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
 		return
 	}
+	defer close()
+
 	res, err := admin.ListUsers(r.Context(), pg)
 	if err != nil {
 		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
@@ -66,11 +71,12 @@ func handleListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFindUser(w http.ResponseWriter, r *http.Request) {
-	pg, err := getConnection(r.Context())
+	pg, close, err := getConnection(r.Context())
 	if err != nil {
 		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
 		return
 	}
+	defer close()
 
 	name := chi.URLParam(r, "name")
 
@@ -83,11 +89,12 @@ func handleFindUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCreateUser(w http.ResponseWriter, r *http.Request) {
-	pg, err := getConnection(r.Context())
+	pg, close, err := getConnection(r.Context())
 	if err != nil {
 		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
 		return
 	}
+	defer close()
 
 	var input createUserRequest
 
@@ -115,11 +122,12 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDeleteUser(w http.ResponseWriter, r *http.Request) {
-	pg, err := getConnection(r.Context())
+	pg, close, err := getConnection(r.Context())
 	if err != nil {
 		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
 		return
 	}
+	defer close()
 
 	name := chi.URLParam(r, "name")
 
@@ -132,12 +140,14 @@ func handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCreateDatabase(w http.ResponseWriter, r *http.Request) {
-	pg, err := getConnection(r.Context())
+	pg, close, err := getConnection(r.Context())
 	if err != nil {
 		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
 		return
 	}
-	input := map[string]string{}
+	defer close()
+
+	input := createDatabaseRequest{}
 
 	err = json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
@@ -146,7 +156,7 @@ func handleCreateDatabase(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	err = admin.CreateDatabase(r.Context(), pg, input["name"])
+	err = admin.CreateDatabase(r.Context(), pg, input.Name)
 	if err != nil {
 		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
 		return
@@ -155,11 +165,13 @@ func handleCreateDatabase(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDeleteDatabase(w http.ResponseWriter, r *http.Request) {
-	pg, err := getConnection(r.Context())
+	pg, close, err := getConnection(r.Context())
 	if err != nil {
 		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
 		return
 	}
+	defer close()
+
 	name := chi.URLParam(r, "name")
 
 	err = admin.DeleteDatabase(r.Context(), pg, name)
@@ -170,15 +182,44 @@ func handleDeleteDatabase(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, &Response{Result: true}, http.StatusOK)
 }
 
-func getConnection(ctx context.Context) (*pgx.Conn, error) {
+func handleGrantAccess(w http.ResponseWriter, r *http.Request) {
+	pg, close, err := getConnection(r.Context())
+	if err != nil {
+		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
+		return
+	}
+	defer close()
+
+	var input grantAccessRequest
+
+	err = json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	err = admin.GrantAccess(r.Context(), pg, input.Username, input.Database)
+	if err != nil {
+		render.JSON(w, &Response{Error: err.Error()}, http.StatusInternalServerError)
+		return
+	}
+	render.JSON(w, &Response{Result: true}, http.StatusOK)
+}
+
+func getConnection(ctx context.Context) (*pgx.Conn, func() error, error) {
 	node, err := flypg.NewNode()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	pg, err := node.NewProxyConnection(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return pg, nil
+	close := func() error {
+		return pg.Close(ctx)
+	}
+
+	return pg, close, nil
 }
