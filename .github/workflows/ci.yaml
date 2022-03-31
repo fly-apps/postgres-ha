@@ -40,21 +40,21 @@ jobs:
           push: true
           tags: |
             flyio/postgres:12
-            flyio/postgres:12.9
+            flyio/postgres:12.10
       -
         name: Build and push Postgres 13
         id: docker_build_13
         uses: docker/build-push-action@v2
         with:
           build-args: |
-            PG_VERSION=13.5
+            PG_VERSION=13.6
             VERSION=${{ steps.get-latest-tag.outputs.tag }}
           context: .
           file: ./Dockerfile
           push: true
           tags: |
             flyio/postgres:13
-            flyio/postgres:13.5
+            flyio/postgres:13.6
       -
         name: Build and push Postgres 14
         id: docker_build_14
@@ -68,7 +68,7 @@ jobs:
           push: true
           tags: |
             flyio/postgres:14
-            flyio/postgres:14.1
+            flyio/postgres:14.2
       -
         name: Postgres 12 Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
