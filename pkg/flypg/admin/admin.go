@@ -149,24 +149,26 @@ func FindUser(ctx context.Context, pg *pgx.Conn, username string) (*UserInfo, er
         userepl as repluser,
     	a.rolpassword as passwordhash,
     (
-        select 
+        SELECT 
 			array_agg(d.datname::text order by d.datname)
         	from pg_database d
         WHERE datistemplate = false AND has_database_privilege(u.usename, d.datname, 'CONNECT')
-    ) as 
+    ) AS 
 		allowed_databases
-    FROM pg_user u join pg_authid a on u.usesysid = a.oid where u.usename='%s';`
+    FROM 
+		pg_user u join pg_authid a on u.usesysid = a.oid 
+	WHERE u.usename='%s';`
 
 	sql = fmt.Sprintf(sql, username)
 
 	row := pg.QueryRow(ctx, sql)
 
-	user := new(UserInfo)
-	if err := row.Scan(user.Username, user.SuperUser, user.ReplUser, user.PasswordHash, user.Databases); err != nil {
+	var user = UserInfo{}
+
+	if err := row.Scan(&user.Username, &user.SuperUser, &user.ReplUser, &user.PasswordHash, &user.Databases); err != nil {
 		return nil, err
 	}
-
-	return user, nil
+	return &user, nil
 
 }
 
