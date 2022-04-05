@@ -11,7 +11,7 @@ type createDatabaseRequest struct {
 	Name string `json:"name"`
 }
 
-type grantAccessRequest struct {
-	Username string `json:"username"`
-	Database string `json:"database"`
+type Response struct {
+	Result interface{} `json:"result,omitempty"`
+	Error  string      `json:"error,omitempty"`
 }
