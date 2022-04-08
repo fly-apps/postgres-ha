@@ -11,6 +11,10 @@ type createDatabaseRequest struct {
 	Name string `json:"name"`
 }
 
+type checkRoleRequest struct {
+	Address string `json:"address"`
+}
+
 type Response struct {
 	Result interface{} `json:"result,omitempty"`
 	Error  string      `json:"error,omitempty"`

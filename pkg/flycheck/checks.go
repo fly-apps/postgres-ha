@@ -13,20 +13,11 @@ import (
 const Port = 5500
 
 func Handler() http.Handler {
-	// r := chi.NewRouter()
-
 	r := http.NewServeMux()
 
 	r.HandleFunc("/flycheck/vm", runVMChecks)
 	r.HandleFunc("/flycheck/pg", runPGChecks)
 	r.HandleFunc("/flycheck/role", runRoleCheck)
-
-	// http.HandleFunc("/flycheck/vm", runVMChecks)
-	// http.HandleFunc("/flycheck/pg", runPGChecks)
-	// http.HandleFunc("/flycheck/role", runRoleCheck)
-
-	// fmt.Printf("Listening on port %d", Port)
-	// http.ListenAndServe(fmt.Sprintf(":%d", Port), nil)
 
 	return r
 }
@@ -42,10 +33,10 @@ func runVMChecks(w http.ResponseWriter, r *http.Request) {
 		cancel()
 	}(ctx)
 
-	select {
-	case <-ctx.Done():
-		handleCheckResponse(w, suite, false)
-	}
+	<-ctx.Done()
+
+	handleCheckResponse(w, suite, false)
+
 }
 
 func runPGChecks(w http.ResponseWriter, r *http.Request) {
@@ -63,10 +54,10 @@ func runPGChecks(w http.ResponseWriter, r *http.Request) {
 		cancel()
 	}()
 
-	select {
-	case <-ctx.Done():
-		handleCheckResponse(w, suite, false)
-	}
+	<-ctx.Done()
+
+	handleCheckResponse(w, suite, false)
+
 }
 
 func runRoleCheck(w http.ResponseWriter, r *http.Request) {
@@ -85,10 +76,10 @@ func runRoleCheck(w http.ResponseWriter, r *http.Request) {
 		cancel()
 	}()
 
-	select {
-	case <-ctx.Done():
-		handleCheckResponse(w, suite, true)
-	}
+	<-ctx.Done()
+
+	handleCheckResponse(w, suite, true)
+
 }
 
 func handleCheckResponse(w http.ResponseWriter, suite *suite.CheckSuite, raw bool) {

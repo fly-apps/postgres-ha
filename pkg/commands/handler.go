@@ -3,11 +3,16 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os/exec"
+	"strings"
 
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
 	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
 	"github.com/fly-examples/postgres-ha/pkg/render"
+	"github.com/fly-examples/postgres-ha/pkg/util"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v4"
 )
@@ -27,6 +32,15 @@ func Handler() http.Handler {
 		r.Get("/{name}", handleFindDatabase)
 		r.Post("/create", handleCreateDatabase)
 		r.Delete("/delete/{name}", handleDeleteDatabase)
+	})
+
+	r.Route("/admin", func(r chi.Router) {
+		// migrate commands under ./fyctl/cmd under an http handler insre
+		r.Get("/failover", handleFailover)
+		r.Get("/restart", handleRestart)
+		r.Get("/settings", handleSettings)
+		r.Post("/role", handleRole)
+
 	})
 
 	return r
@@ -243,4 +257,71 @@ func getConnection(ctx context.Context) (*pgx.Conn, func() error, error) {
 	}
 
 	return pg, close, nil
+}
+
+func handleFailover(w http.ResponseWriter, r *http.Request) {
+	res := &Response{Result: true}
+
+	render.JSON(w, res, http.StatusOK)
+}
+
+func handleRestart(w http.ResponseWriter, r *http.Request) {
+
+	args := []string{"stolon", "pg_ctl", "-D", "/data/postgres", "restart"}
+
+	cmd := exec.Command("gosu", args...)
+
+	if err := cmd.Run(); err != nil {
+		render.Err(w, err)
+		return
+	}
+
+	if cmd.ProcessState.ExitCode() != 0 {
+		err := fmt.Errorf(cmd.ProcessState.String())
+		render.Err(w, err)
+		return
+	}
+
+	res := &Response{Result: "Restart completed successfully"}
+
+	render.JSON(w, res, http.StatusOK)
+}
+
+func handleSettings(w http.ResponseWriter, r *http.Request) {
+	res := &Response{Result: true}
+
+	render.JSON(w, res, http.StatusOK)
+}
+
+func handleRole(w http.ResponseWriter, r *http.Request) {
+	in := &checkRoleRequest{}
+
+	err := json.NewDecoder(r.Body).Decode(&in)
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+	endpoint := fmt.Sprintf("http://[%s]:5500/flycheck/role", in.Address)
+
+	resp, err := http.Get(endpoint)
+	if err != nil {
+		render.Err(w, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		render.Err(w, fmt.Errorf("role check failed %w", err))
+		return
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		util.WriteError(err)
+	}
+
+	role := strings.Trim(string(body), "\n")
+	role = strings.Trim(role, "\"")
+
+	res := &Response{Result: role}
+
+	render.JSON(w, res, http.StatusOK)
 }

@@ -113,7 +113,7 @@ func transactionMode(ctx context.Context, conn *pgx.Conn, expected string) (stri
 	if state != expected {
 		return "", fmt.Errorf("%s but expected %s", state, expected)
 	}
-	return fmt.Sprintf("%s", state), nil
+	return state, nil
 }
 
 type ReplicationEntry struct {
@@ -137,8 +137,8 @@ func replicationEntries(ctx context.Context, leader *pgx.Conn) ([]ReplicationEnt
 		if err != nil {
 			return nil, err
 		}
-		var dur time.Duration
-		dur = time.Duration(replayLag.Microseconds)
+
+		dur := time.Duration(replayLag.Microseconds)
 
 		entry := ReplicationEntry{
 			Client:    clientAddr.IP.String(),
