@@ -4,15 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os/exec"
-	"strings"
 
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
 	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
 	"github.com/fly-examples/postgres-ha/pkg/render"
-	"github.com/fly-examples/postgres-ha/pkg/util"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v4"
 )
@@ -39,7 +36,7 @@ func Handler() http.Handler {
 		r.Get("/failover", handleFailover)
 		r.Get("/restart", handleRestart)
 		r.Get("/settings", handleSettings)
-		r.Post("/role", handleRole)
+		r.Get("/role", handleRole)
 
 	})
 
@@ -294,32 +291,18 @@ func handleSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleRole(w http.ResponseWriter, r *http.Request) {
-	in := &checkRoleRequest{}
-
-	err := json.NewDecoder(r.Body).Decode(&in)
+	pg, close, err := getConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
 		return
 	}
-	endpoint := fmt.Sprintf("http://[%s]:5500/flycheck/role", in.Address)
+	defer close()
 
-	resp, err := http.Get(endpoint)
+	role, err := admin.ResolveRole(r.Context(), pg)
 	if err != nil {
 		render.Err(w, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		render.Err(w, fmt.Errorf("role check failed %w", err))
 		return
 	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		util.WriteError(err)
-	}
-
-	role := strings.Trim(string(body), "\n")
-	role = strings.Trim(role, "\"")
 
 	res := &Response{Result: role}
 

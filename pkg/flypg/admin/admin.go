@@ -235,3 +235,16 @@ func GrantAccess(ctx context.Context, pg *pgx.Conn, database, username string) e
 
 	return nil
 }
+
+func ResolveRole(ctx context.Context, pg *pgx.Conn) (string, error) {
+	var readonly string
+	err := pg.QueryRow(ctx, "SHOW transaction_read_only").Scan(&readonly)
+	if err != nil {
+		return "offline", err
+	}
+
+	if readonly == "on" {
+		return "replica", nil
+	}
+	return "leader", nil
+}
