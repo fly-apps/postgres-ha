@@ -13,24 +13,6 @@ import (
 	"github.com/fly-examples/postgres-ha/pkg/util"
 )
 
-type pgSettings struct {
-	Settings []pgSetting `json:"settings"`
-}
-
-type pgSetting struct {
-	Name           *string   `json:"name,omitempty"`
-	Setting        *string   `json:"setting,omitempty"`
-	Context        *string   `json:"context,omitempty"`
-	VarType        *string   `json:"vartype,omitempty"`
-	MinVal         *string   `json:"min_val,omitempty"`
-	MaxVal         *string   `json:"max_val,omitempty"`
-	EnumVals       []*string `json:"enumvals`
-	Unit           *string   `json:"unit,omitempty"`
-	ShortDesc      *string   `json:"short_desc,omitempty"`
-	PendingChange  *string   `json:"pending_change,omitempty"`
-	PendingRestart bool      `json:"pending_restart,omitempty"`
-}
-
 func main() {
 	encodedArg := os.Args[1]
 
@@ -67,10 +49,12 @@ func main() {
 	}
 	defer rows.Close()
 
-	var settings pgSettings
+	var values []flypg.Setting
 	var confMap map[string]string
 	for rows.Next() {
-		s := pgSetting{}
+
+		s := flypg.Setting{}
+
 		err := rows.Scan(
 			&s.Name,
 			&s.Setting,
@@ -97,7 +81,11 @@ func main() {
 			s.PendingChange = &val
 		}
 
-		settings.Settings = append(settings.Settings, s)
+		values = append(values, s)
+	}
+
+	var settings = flypg.Settings{
+		Settings: values,
 	}
 
 	respBytes, err := json.Marshal(settings)

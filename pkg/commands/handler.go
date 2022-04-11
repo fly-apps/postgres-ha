@@ -38,7 +38,8 @@ func Handler() http.Handler {
 		// migrate commands under ./fyctl/cmd under an http handler insre
 		r.Get("/failover", handleFailover)
 		r.Get("/restart", handleRestart)
-		r.Get("/settings", handleSettings)
+		r.Get("/settings/view", handleViewSettings)
+
 		r.Get("/role", handleRole)
 
 	})
@@ -242,23 +243,6 @@ func handleDeleteDatabase(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, res, http.StatusOK)
 }
 
-func getConnection(ctx context.Context) (*pgx.Conn, func() error, error) {
-	node, err := flypg.NewNode()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pg, err := node.NewProxyConnection(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	close := func() error {
-		return pg.Close(ctx)
-	}
-
-	return pg, close, nil
-}
-
 func handleFailover(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -348,12 +332,6 @@ func handleRestart(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, res, http.StatusOK)
 }
 
-func handleSettings(w http.ResponseWriter, r *http.Request) {
-	res := &Response{Result: true}
-
-	render.JSON(w, res, http.StatusOK)
-}
-
 func handleRole(w http.ResponseWriter, r *http.Request) {
 	pg, close, err := getConnection(r.Context())
 	if err != nil {
@@ -371,6 +349,50 @@ func handleRole(w http.ResponseWriter, r *http.Request) {
 	res := &Response{Result: role}
 
 	render.JSON(w, res, http.StatusOK)
+}
+
+func handleViewSettings(w http.ResponseWriter, r *http.Request) {
+	pg, close, err := getConnection(r.Context())
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+	defer close()
+
+	in := []string{}
+
+	if err = json.NewDecoder(r.Body).Decode(&in); err != nil {
+		render.Err(w, err)
+		return
+	}
+
+	settings, err := admin.ResolveSettings(r.Context(), pg, in)
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+
+	res := &Response{
+		Result: settings,
+	}
+	render.JSON(w, res, http.StatusOK)
+}
+
+func getConnection(ctx context.Context) (*pgx.Conn, func() error, error) {
+	node, err := flypg.NewNode()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pg, err := node.NewProxyConnection(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	close := func() error {
+		return pg.Close(ctx)
+	}
+
+	return pg, close, nil
 }
 
 func masterKeeperUID(data *stolon.ClusterData) string {
