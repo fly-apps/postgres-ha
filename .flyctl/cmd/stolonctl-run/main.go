@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"encoding/base64"
 
+	"github.com/fly-examples/postgres-ha/pkg/flypg/stolon"
 	"github.com/fly-examples/postgres-ha/pkg/util"
 	"github.com/google/shlex"
 )
@@ -29,10 +29,7 @@ func main() {
 		util.WriteError(fmt.Errorf("error parsing argument: %w", err))
 	}
 
-	cmd := exec.Command("stolonctl", args...)
-	cmd.Env = append(cmd.Env, env...)
-
-	result, err := cmd.CombinedOutput()
+	result, err := stolon.Ctl(args, env)
 	if err != nil {
 		util.WriteError(err)
 	}

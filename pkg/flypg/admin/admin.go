@@ -309,10 +309,6 @@ func ResolveSettings(ctx context.Context, pg *pgx.Conn, list []string) (*flypg.S
 	return settings, nil
 }
 
-func UpdateSettings(ctx context.Context, pg *pgx.Conn, config map[string]string) error {
-	return fmt.Errorf("not implemented")
-}
-
 func populatePgSettings(dataDir string) (map[string]string, error) {
 	pathToFile := fmt.Sprintf("%s/postgres/postgresql.conf", dataDir)
 	file, err := os.Open(pathToFile)
