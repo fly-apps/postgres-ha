@@ -29,7 +29,7 @@ func Handler() http.Handler {
 
 	r.Route("/admin", func(r chi.Router) {
 		r.Get("/role", handleRole)
-		r.Get("/failover", handleFailover)
+		r.Get("/failover/trigger", handleFailoverTrigger)
 		r.Get("/restart", handleRestart)
 		r.Get("/settings/view", handleViewSettings)
 
