@@ -13,7 +13,7 @@ import (
 	"github.com/fly-examples/postgres-ha/pkg/util"
 )
 
-func handleFailover(w http.ResponseWriter, r *http.Request) {
+func handleFailoverTrigger(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	env, err := util.BuildEnv()
