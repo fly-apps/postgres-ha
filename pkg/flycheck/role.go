@@ -5,7 +5,7 @@ import (
 
 	chk "github.com/fly-examples/postgres-ha/pkg/check"
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
-	"github.com/jackc/pgx/v4"
+	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
 	"github.com/pkg/errors"
 )
 
@@ -27,21 +27,7 @@ func PostgreSQLRole(ctx context.Context, checks *chk.CheckSuite) (*chk.CheckSuit
 	}
 
 	checks.AddCheck("role", func() (string, error) {
-		return resolveRole(ctx, conn)
+		return admin.ResolveRole(ctx, conn)
 	})
 	return checks, nil
-}
-
-func resolveRole(ctx context.Context, conn *pgx.Conn) (string, error) {
-	var readonly string
-	err := conn.QueryRow(ctx, "SHOW transaction_read_only").Scan(&readonly)
-	if err != nil {
-		return "offline", err
-	}
-
-	if readonly == "on" {
-		return "replica", nil
-	} else {
-		return "leader", nil
-	}
 }

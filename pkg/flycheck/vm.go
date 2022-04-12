@@ -11,11 +11,10 @@ import (
 	"time"
 
 	"github.com/fly-examples/postgres-ha/pkg/check"
-	chk "github.com/fly-examples/postgres-ha/pkg/check"
 )
 
 // CheckVM for system / disk checks
-func CheckVM(checks *chk.CheckSuite) *chk.CheckSuite {
+func CheckVM(checks *check.CheckSuite) *check.CheckSuite {
 
 	checks.AddCheck("checkDisk", func() (string, error) {
 		return checkDisk("/data/")
@@ -49,6 +48,9 @@ func checkPressure(name string) (string, error) {
 		"some avg10=%f avg60=%f avg300=%f total=%f",
 		&avg10, &avg60, &avg300, &counter,
 	)
+	if err != nil {
+		return "", err
+	}
 
 	avg10Dur, err := pressureToDuration(avg10, 10.0)
 	if err != nil {

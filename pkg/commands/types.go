@@ -11,6 +11,10 @@ type createDatabaseRequest struct {
 	Name string `json:"name"`
 }
 
+type failOverResponse struct {
+	Message string `json:"message"`
+}
+
 type Response struct {
 	Result interface{} `json:"result,omitempty"`
 	Error  string      `json:"error,omitempty"`

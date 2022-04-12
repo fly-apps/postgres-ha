@@ -1,11 +1,14 @@
 package admin
 
 import (
+	"bufio"
 	"context"
 	"crypto/md5"
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/fly-examples/postgres-ha/pkg/flypg"
 	"github.com/jackc/pgx/v4"
 )
 
@@ -234,4 +237,93 @@ func GrantAccess(ctx context.Context, pg *pgx.Conn, database, username string) e
 	}
 
 	return nil
+}
+
+func ResolveRole(ctx context.Context, pg *pgx.Conn) (string, error) {
+	var readonly string
+	err := pg.QueryRow(ctx, "SHOW transaction_read_only").Scan(&readonly)
+	if err != nil {
+		return "offline", err
+	}
+
+	if readonly == "on" {
+		return "replica", nil
+	}
+	return "leader", nil
+}
+
+func ResolveSettings(ctx context.Context, pg *pgx.Conn, list []string) (*flypg.Settings, error) {
+	node, err := flypg.NewNode()
+	if err != nil {
+		return nil, err
+	}
+	sValues := "'" + strings.Join(list, "', '") + "'"
+
+	sql := fmt.Sprintf(`
+	SELECT
+		name, 
+		setting, 
+		vartype, 
+		min_val, 
+		max_val, 
+		enumvals, 
+		context, 
+		unit, 
+		short_desc, 
+		pending_restart 
+	FROM pg_settings WHERE name IN (%s);`, sValues)
+
+	rows, err := pg.Query(ctx, sql)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var confMap map[string]string
+
+	var values []flypg.Setting
+
+	for rows.Next() {
+		var s flypg.Setting
+
+		if err := rows.Scan(&s.Name, &s.Setting, &s.VarType, &s.MinVal, &s.MaxVal, &s.EnumVals, &s.Context, &s.Unit, &s.ShortDesc, &s.PendingRestart); err != nil {
+			return nil, err
+		}
+		if s.PendingRestart {
+			if len(confMap) == 0 {
+				confMap, err = populatePgSettings(node.DataDir)
+				if err != nil {
+					return nil, err
+				}
+			}
+			val := confMap[*s.Name]
+			s.PendingChange = &val
+		}
+		values = append(values, s)
+	}
+
+	var settings = &flypg.Settings{
+		Settings: values,
+	}
+
+	return settings, nil
+}
+
+func populatePgSettings(dataDir string) (map[string]string, error) {
+	pathToFile := fmt.Sprintf("%s/postgres/postgresql.conf", dataDir)
+	file, err := os.Open(pathToFile)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	sMap := map[string]string{}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		sS := strings.Split(scanner.Text(), " = ")
+		val := strings.Trim(sS[1], "'")
+		sMap[sS[0]] = val
+	}
+
+	return sMap, err
 }

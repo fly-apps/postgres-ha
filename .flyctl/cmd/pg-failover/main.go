@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"os/exec"
 	"time"
 
 	"github.com/fly-examples/postgres-ha/pkg/flypg/stolon"
@@ -16,7 +14,7 @@ func main() {
 		util.WriteError(err)
 	}
 
-	data, err := clusterData(env)
+	data, err := stolon.FetchClusterData(env)
 	if err != nil {
 		util.WriteError(err)
 	}
@@ -37,7 +35,7 @@ func main() {
 		util.WriteError(fmt.Errorf("No eligible keepers available to accommodate failover"))
 	}
 
-	_, err = stolonCtl([]string{"failkeeper", currentMasterUID}, env)
+	_, err = stolon.Failkeeper(currentMasterUID, env)
 	if err != nil {
 		util.WriteError(err)
 	}
@@ -50,7 +48,7 @@ func main() {
 		case <-timeout:
 			util.WriteError(fmt.Errorf("timed out verifying failover"))
 		case <-ticker:
-			data, err := clusterData(env)
+			data, err := stolon.FetchClusterData(env)
 			if err != nil {
 				util.WriteError(fmt.Errorf("failed to verify failover with error: %w", err))
 			}
@@ -61,27 +59,6 @@ func main() {
 			}
 		}
 	}
-}
-
-func clusterData(env []string) (*stolon.ClusterData, error) {
-	args := []string{"clusterdata", "read"}
-	result, err := stolonCtl(args, env)
-	if err != nil {
-		return nil, err
-	}
-	var data stolon.ClusterData
-	if err := json.Unmarshal(result, &data); err != nil {
-		return nil, err
-	}
-
-	return &data, nil
-}
-
-func stolonCtl(args []string, env []string) ([]byte, error) {
-	subProcess := exec.Command("stolonctl", args...)
-	subProcess.Env = append(subProcess.Env, env...)
-
-	return subProcess.CombinedOutput()
 }
 
 func masterKeeperUID(data *stolon.ClusterData) string {
