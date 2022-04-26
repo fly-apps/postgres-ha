@@ -10,14 +10,14 @@ import (
 )
 
 func handleListUsers(w http.ResponseWriter, r *http.Request) {
-	pg, close, err := getConnection(r.Context())
+	conn, close, err := proxyConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
 		return
 	}
 	defer close()
 
-	users, err := admin.ListUsers(r.Context(), pg)
+	users, err := admin.ListUsers(r.Context(), conn)
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -31,7 +31,7 @@ func handleListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFindUser(w http.ResponseWriter, r *http.Request) {
-	pg, close, err := getConnection(r.Context())
+	conn, close, err := proxyConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -40,7 +40,7 @@ func handleFindUser(w http.ResponseWriter, r *http.Request) {
 
 	name := chi.URLParam(r, "name")
 
-	user, err := admin.FindUser(r.Context(), pg, name)
+	user, err := admin.FindUser(r.Context(), conn, name)
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -52,7 +52,7 @@ func handleFindUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCreateUser(w http.ResponseWriter, r *http.Request) {
-	pg, close, err := getConnection(r.Context())
+	conn, close, err := proxyConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -68,14 +68,14 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	err = admin.CreateUser(r.Context(), pg, input.Username, input.Password)
+	err = admin.CreateUser(r.Context(), conn, input.Username, input.Password)
 	if err != nil {
 		render.Err(w, err)
 		return
 	}
 
 	if input.Database != "" {
-		err = admin.GrantAccess(r.Context(), pg, input.Username, input.Database)
+		err = admin.GrantAccess(r.Context(), conn, input.Username, input.Database)
 		if err != nil {
 			render.Err(w, err)
 			return
@@ -83,7 +83,7 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if input.Superuser {
-		err = admin.GrantSuperuser(r.Context(), pg, input.Username)
+		err = admin.GrantSuperuser(r.Context(), conn, input.Username)
 		if err != nil {
 			render.Err(w, err)
 			return
@@ -97,7 +97,7 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDeleteUser(w http.ResponseWriter, r *http.Request) {
-	pg, close, err := getConnection(r.Context())
+	conn, close, err := proxyConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -106,11 +106,12 @@ func handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	name := chi.URLParam(r, "name")
 
-	err = admin.DeleteUser(r.Context(), pg, name)
+	err = admin.DeleteUser(r.Context(), conn, name)
 	if err != nil {
 		render.Err(w, err)
 		return
 	}
 	res := &Response{Result: true}
+
 	render.JSON(w, res, http.StatusOK)
 }
