@@ -10,14 +10,14 @@ import (
 )
 
 func handleListDatabases(w http.ResponseWriter, r *http.Request) {
-	pg, close, err := getConnection(r.Context())
+	conn, close, err := proxyConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
 		return
 	}
 	defer close()
 
-	dbs, err := admin.ListDatabases(r.Context(), pg)
+	dbs, err := admin.ListDatabases(r.Context(), conn)
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -30,7 +30,7 @@ func handleListDatabases(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleFindDatabase(w http.ResponseWriter, r *http.Request) {
-	pg, close, err := getConnection(r.Context())
+	conn, close, err := proxyConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -39,7 +39,7 @@ func handleFindDatabase(w http.ResponseWriter, r *http.Request) {
 
 	name := chi.URLParam(r, "name")
 
-	db, err := admin.FindDatabase(r.Context(), pg, name)
+	db, err := admin.FindDatabase(r.Context(), conn, name)
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -52,7 +52,7 @@ func handleFindDatabase(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCreateDatabase(w http.ResponseWriter, r *http.Request) {
-	pg, close, err := getConnection(r.Context())
+	conn, close, err := proxyConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -68,7 +68,7 @@ func handleCreateDatabase(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	err = admin.CreateDatabase(r.Context(), pg, input.Name)
+	err = admin.CreateDatabase(r.Context(), conn, input.Name)
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -80,7 +80,7 @@ func handleCreateDatabase(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDeleteDatabase(w http.ResponseWriter, r *http.Request) {
-	pg, close, err := getConnection(r.Context())
+	conn, close, err := proxyConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -89,7 +89,7 @@ func handleDeleteDatabase(w http.ResponseWriter, r *http.Request) {
 
 	name := chi.URLParam(r, "name")
 
-	err = admin.DeleteDatabase(r.Context(), pg, name)
+	err = admin.DeleteDatabase(r.Context(), conn, name)
 	if err != nil {
 		render.Err(w, err)
 		return

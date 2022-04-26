@@ -103,14 +103,14 @@ func handleRestart(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleRole(w http.ResponseWriter, r *http.Request) {
-	pg, close, err := getConnection(r.Context())
+	conn, close, err := localConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
 		return
 	}
 	defer close()
 
-	role, err := admin.ResolveRole(r.Context(), pg)
+	role, err := admin.ResolveRole(r.Context(), conn)
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -122,7 +122,7 @@ func handleRole(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleViewSettings(w http.ResponseWriter, r *http.Request) {
-	pg, close, err := getConnection(r.Context())
+	conn, close, err := proxyConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
 		return
@@ -136,7 +136,7 @@ func handleViewSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings, err := admin.ResolveSettings(r.Context(), pg, in)
+	settings, err := admin.ResolveSettings(r.Context(), conn, in)
 	if err != nil {
 		render.Err(w, err)
 		return

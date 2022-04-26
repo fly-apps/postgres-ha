@@ -38,13 +38,30 @@ func Handler() http.Handler {
 	return r
 }
 
-func getConnection(ctx context.Context) (*pgx.Conn, func() error, error) {
+func proxyConnection(ctx context.Context) (*pgx.Conn, func() error, error) {
 	node, err := flypg.NewNode()
 	if err != nil {
 		return nil, nil, err
 	}
 
 	pg, err := node.NewProxyConnection(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	close := func() error {
+		return pg.Close(ctx)
+	}
+
+	return pg, close, nil
+}
+
+func localConnection(ctx context.Context) (*pgx.Conn, func() error, error) {
+	node, err := flypg.NewNode()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pg, err := node.NewLocalConnection(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
