@@ -27,6 +27,17 @@ func PostgreSQLRole(ctx context.Context, checks *chk.CheckSuite) (*chk.CheckSuit
 	}
 
 	checks.AddCheck("role", func() (string, error) {
+		// checkDisk usage is >90% return "readonly"
+		size, available, err := diskUsage("/data/")
+		if err != nil {
+			return "", errors.Wrap(err, "failed to get disk usage")
+		}
+
+		used := float64(size-available) / float64(size) * 100
+
+		if used > 90 {
+			return "readonly", nil
+		}
 		return admin.ResolveRole(ctx, conn)
 	})
 	return checks, nil

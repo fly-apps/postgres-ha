@@ -114,17 +114,12 @@ func checkLoad() (string, error) {
 }
 
 func checkDisk(dir string) (string, error) {
-	var stat syscall.Statfs_t
-
-	err := syscall.Statfs(dir, &stat)
-
+	// Available blocks * size per block = available space in bytes
+	size, available, err := diskUsage(dir)
 	if err != nil {
 		return "", fmt.Errorf("%s: %s", dir, err)
 	}
 
-	// Available blocks * size per block = available space in bytes
-	size := stat.Blocks * uint64(stat.Bsize)
-	available := stat.Bavail * uint64(stat.Bsize)
 	pct := float64(available) / float64(size)
 	msg := fmt.Sprintf("%s (%.1f%%) free space on %s", dataSize(available), pct*100, dir)
 
@@ -133,6 +128,21 @@ func checkDisk(dir string) (string, error) {
 	}
 
 	return msg, nil
+}
+
+func diskUsage(dir string) (size uint64, available uint64, err error) {
+	var stat syscall.Statfs_t
+
+	err = syscall.Statfs(dir, &stat)
+
+	if err != nil {
+		return 0, 0, fmt.Errorf("%s: %s", dir, err)
+	}
+
+	size = stat.Blocks * uint64(stat.Bsize)
+	available = stat.Bavail * uint64(stat.Bsize)
+	return size, available, nil
+
 }
 
 func round(val float64, roundOn float64, places int) (newVal float64) {
