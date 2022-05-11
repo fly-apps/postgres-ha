@@ -2,6 +2,7 @@ package flycheck
 
 import (
 	"context"
+	"fmt"
 
 	chk "github.com/fly-examples/postgres-ha/pkg/check"
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
@@ -29,8 +30,9 @@ func PostgreSQLRole(ctx context.Context, checks *chk.CheckSuite) (*chk.CheckSuit
 	checks.AddCheck("role", func() (string, error) {
 		// checkDisk usage is >90% return "readonly"
 		size, available, err := diskUsage("/data/")
+
 		if err != nil {
-			return "", errors.Wrap(err, "failed to get disk usage")
+			fmt.Printf("failed to get disk usage: %s\n", err)
 		}
 
 		used := float64(size-available) / float64(size) * 100
