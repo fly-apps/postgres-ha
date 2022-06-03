@@ -25,7 +25,7 @@ FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 FROM postgres:${PG_VERSION}
 ARG VERSION 
 ARG POSTGIS_MAJOR=3
-ARG WALG_VERSION=1.1
+ARG WALG_VERSION=2.0.0
 
 LABEL fly.app_role=postgres_cluster
 LABEL fly.version=${VERSION}
