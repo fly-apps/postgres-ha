@@ -130,7 +130,7 @@ func main() {
 		"STKEEPER_PG_REPL_PASSWORD":  node.ReplCredentials.Password,
 		"STKEEPER_PG_LISTEN_ADDRESS": node.PrivateIP.String(),
 		"STKEEPER_PG_PORT":           strconv.Itoa(node.PGPort),
-		"STKEEPER_LOG_LEVEL":         "info",
+		"STKEEPER_LOG_LEVEL":         "warn",
 		"STKEEPER_CLUSTER_NAME":      node.AppName,
 		"STKEEPER_STORE_BACKEND":     node.BackendStore,
 		"STKEEPER_STORE_URL":         node.BackendStoreURL.String(),
@@ -147,7 +147,7 @@ func main() {
 	sentinelEnv := map[string]string{
 		"STSENTINEL_DATA_DIR":             node.DataDir,
 		"STSENTINEL_INITIAL_CLUSTER_SPEC": "/fly/cluster-spec.json",
-		"STSENTINEL_LOG_LEVEL":            "info",
+		"STSENTINEL_LOG_LEVEL":            "warn",
 		"STSENTINEL_CLUSTER_NAME":         node.AppName,
 		"STSENTINEL_STORE_BACKEND":        node.BackendStore,
 		"STSENTINEL_STORE_URL":            node.BackendStoreURL.String(),
