@@ -1,0 +1,37 @@
+version: "3.9"  # optional since v1.27.0
+services:
+  consul:
+    image: consul
+    environment:
+      CONSUL_LOG_LEVEL: warn
+      CONSUL_LOCAL_CONFIG: '{"log_level": "info"}'
+    ports:
+      - "8500"
+    # configs:
+    #   - source: consul-config.json
+    #     target: /redis_config
+    #     uid: '103'
+    #     gid: '103'
+    #     mode: 0440
+    # volumes:
+    #   - .:/code
+    #   - logvolume01:/var/log
+    # links:
+    #   - redis
+  flypg:
+    build: .
+    links:
+      - consul
+    environment:
+      FLY_CONSUL_URL: "http://consul:8500/chaos-postgres-wvo4x1opkz9l5ydn/"
+      SU_USERNAME: "flypgadmin"
+      SU_PASSWORD: "supassword"
+      REPL_USERNAME: "repluser"
+      REPL_PASSWORD: "replpassword"
+      OPERATOR_USERNAME: "postgres"
+      OPERATOR_PASSWORD: "operatorpassword"
+    ports:
+      - "5432:5432"
+      - "5433:5433"
+# volumes:
+#   logvolume01: {}

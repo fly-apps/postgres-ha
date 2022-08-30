@@ -1,0 +1,63 @@
+# fly.toml file generated for still-mountain-6507 on 2022-08-20T00:03:48-07:00
+
+app = "still-mountain-6507"
+kill_signal = "SIGTERM"
+kill_timeout = 300
+processes = []
+services = []
+
+[checks]
+  [checks.pg]
+    grace_period = "30s"
+    headers = []
+    interval = "15s"
+    method = "get"
+    path = "/flycheck/pg"
+    port = 5500
+    protocol = "http"
+    restart_limit = 0
+    timeout = "10s"
+    tls_skip_verify = false
+    type = "http"
+  [checks.role]
+    grace_period = "30s"
+    headers = []
+    interval = "15s"
+    method = "get"
+    path = "/flycheck/role"
+    port = 5500
+    protocol = "http"
+    restart_limit = 0
+    timeout = "10s"
+    tls_skip_verify = false
+    type = "http"
+  [checks.vm]
+    grace_period = "1s"
+    headers = []
+    interval = "1m"
+    method = "get"
+    path = "/flycheck/vm"
+    port = 5500
+    protocol = "http"
+    restart_limit = 0
+    timeout = "10s"
+    tls_skip_verify = false
+    type = "http"
+
+[env]
+  PRIMARY_REGION = "sjc"
+
+[experimental]
+  allowed_public_ports = []
+  auto_rollback = false
+  enable_consul = true
+  private_network = true
+
+[metrics]
+  path = "/metrics"
+  port = 9187
+
+[[mounts]]
+  destination = "/data"
+  encrypted = false
+  source = "pg_data"
