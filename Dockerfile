@@ -1,9 +1,7 @@
 ARG PG_VERSION=14.4
-ARG GO_VERSION=1.16
 ARG VERSION=custom
 
-FROM golang:$GO_VERSION as flyutil
-ARG VERSION
+FROM golang as flyutil
 
 WORKDIR /go/src/github.com/fly-examples/postgres-ha
 COPY . .
@@ -21,10 +19,17 @@ RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-settings ./.flyctl/cmd/p
 
 COPY ./bin/* /fly/bin/
 
-FROM golang:$GO_VERSION as stolon_builder
+FROM golang as stolon_builder
+ARG VERSION=custom
+ARG LDFLAGS="-w -X github.com/sorintlab/stolon/cmd.Version=$VERSION"
+
 WORKDIR /go/src/app
 COPY stolon .
-RUN make build
+
+RUN GOOS=linux CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o /go/src/app/bin/stolon-keeper ./cmd/keeper
+RUN GOOS=linux CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o /go/src/app/bin/stolon-sentinel ./cmd/sentinel
+RUN GOOS=linux CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o /go/src/app/bin/stolon-proxy ./cmd/proxy
+RUN GOOS=linux CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o /go/src/app/bin/stolonctl ./cmd/stolonctl
 
 FROM debian as stolon
 COPY --from=stolon_builder /go/src/app/bin/ /go/src/app/bin/

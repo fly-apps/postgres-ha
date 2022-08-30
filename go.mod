@@ -1,6 +1,6 @@
 module github.com/fly-examples/postgres-ha
 
-go 1.16
+go 1.18
 
 require (
 	github.com/go-chi/chi/v5 v5.0.7
@@ -9,12 +9,15 @@ require (
 	github.com/jackc/pgtype v1.6.2
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/kr/pretty v0.2.0 // indirect
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.1
 	github.com/pkg/term v1.1.0
 	github.com/shirou/gopsutil/v3 v3.21.3
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
+	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
-
-replace github.com/sorintlab/stolon => ./stolon

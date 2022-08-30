@@ -1,1 +1,7 @@
 .git
+stolon/bin/
+stolon/release/
+Dockerfile
+.dockerignore
+docker-compose.yml
+fly.toml

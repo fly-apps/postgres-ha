@@ -15,6 +15,7 @@ require (
 	github.com/sorintlab/pollon v0.0.0-20181009091703-248c68238c16
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
+	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/superfly/leadership v0.2.1
 	github.com/superfly/libkv v0.3.5
 	go.etcd.io/etcd v3.3.25+incompatible
@@ -28,4 +29,4 @@ require (
 	k8s.io/client-go v0.17.3
 )
 
-go 1.16
+go 1.18
