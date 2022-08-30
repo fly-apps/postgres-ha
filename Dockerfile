@@ -1,38 +1,30 @@
 ARG PG_VERSION=14.4
 ARG VERSION=custom
 
-FROM golang as flyutil
+FROM golang as builder
 
-WORKDIR /go/src/github.com/fly-examples/postgres-ha
-COPY . .
-
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/flyadmin ./cmd/flyadmin
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/start ./cmd/start
-
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-restart ./.flyctl/cmd/pg-restart
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-role ./.flyctl/cmd/pg-role
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-failover ./.flyctl/cmd/pg-failover
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/stolonctl-run ./.flyctl/cmd/stolonctl-run
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-settings ./.flyctl/cmd/pg-settings
-
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-settings ./.flyctl/cmd/pg-settings
-
-COPY ./bin/* /fly/bin/
-
-FROM golang as stolon_builder
-ARG VERSION=custom
 ARG LDFLAGS="-w -X github.com/sorintlab/stolon/cmd.Version=$VERSION"
 
 WORKDIR /go/src/app
-COPY stolon .
+COPY go.mod go.mod
+COPY go.sum go.sum
+RUN go mod download
 
-RUN GOOS=linux CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o /go/src/app/bin/stolon-keeper ./cmd/keeper
-RUN GOOS=linux CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o /go/src/app/bin/stolon-sentinel ./cmd/sentinel
-RUN GOOS=linux CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o /go/src/app/bin/stolon-proxy ./cmd/proxy
-RUN GOOS=linux CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o /go/src/app/bin/stolonctl ./cmd/stolonctl
+COPY . .
 
-FROM debian as stolon
-COPY --from=stolon_builder /go/src/app/bin/ /go/src/app/bin/
+RUN go build -o ./bin/flyadmin ./cmd/flyadmin
+RUN go build -o ./bin/start ./cmd/start
+
+RUN go build -o ./bin/pg-restart ./.flyctl/cmd/pg-restart
+RUN go build -o ./bin/pg-role ./.flyctl/cmd/pg-role
+RUN go build -o ./bin/pg-failover ./.flyctl/cmd/pg-failover
+RUN go build -o ./bin/stolonctl-run ./.flyctl/cmd/stolonctl-run
+RUN go build -o ./bin/pg-settings ./.flyctl/cmd/pg-settings
+
+RUN go build -ldflags "$LDFLAGS" -o ./bin/stolon-keeper ./stolon/cmd/keeper
+RUN go build -ldflags "$LDFLAGS" -o ./bin/stolon-sentinel ./stolon/cmd/sentinel
+RUN go build -ldflags "$LDFLAGS" -o ./bin/stolon-proxy ./stolon/cmd/proxy
+RUN go build -ldflags "$LDFLAGS" -o ./bin/stolonctl ./stolon/cmd/stolonctl
 
 FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 
@@ -50,14 +42,13 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     postgresql-$PG_MAJOR-postgis-$POSTGIS_MAJOR-scripts \    
     && apt autoremove -y
 
-COPY --from=stolon /go/src/app/bin/* /usr/local/bin/
-COPY --from=postgres_exporter /postgres_exporter /usr/local/bin/
-
 ADD /scripts/* /fly/
 ADD /config/* /fly/
 RUN useradd -ms /bin/bash stolon
 RUN mkdir -p /run/haproxy/
-COPY --from=flyutil /fly/bin/* /usr/local/bin/
+
+COPY --from=builder /go/src/app/bin/* /usr/local/bin/
+COPY --from=postgres_exporter /postgres_exporter /usr/local/bin/
 
 EXPOSE 5432
 
