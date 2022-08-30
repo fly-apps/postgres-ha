@@ -55,15 +55,15 @@ if [ -n "${vetRes}" ]; then
 	exit 255
 fi
 
-echo "Checking govet -shadow ..."
-go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
-export PATH="$(go env GOPATH)/bin":${PATH}
-shadow_tool=$(which shadow)
-vetRes=$(${shadow_tool} ${PACKAGES})
-if [ -n "${vetRes}" ]; then
-	echo -e "govet checking ${path} failed:\n${vetRes}"
-	exit 255
-fi
+# echo "Checking govet -shadow ..."
+# go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
+# export PATH="$(go env GOPATH)/bin":${PATH}
+# shadow_tool=$(which shadow)
+# vetRes=$(${shadow_tool} ${PACKAGES})
+# if [ -n "${vetRes}" ]; then
+# 	echo -e "govet checking ${path} failed:\n${vetRes}"
+# 	exit 255
+# fi
 
 echo "Checking for license header..."
 licRes=$(for file in $(find . -type f -iname '*.go' ! -path './vendor/*'); do
