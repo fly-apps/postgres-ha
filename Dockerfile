@@ -1,7 +1,8 @@
 ARG PG_VERSION=14.4
+ARG GO_VERSION=1.16
 ARG VERSION=custom
 
-FROM golang:1.16 as flyutil
+FROM golang:$GO_VERSION as flyutil
 ARG VERSION
 
 WORKDIR /go/src/github.com/fly-examples/postgres-ha
@@ -16,9 +17,17 @@ RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-failover ./.flyctl/cmd/p
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/stolonctl-run ./.flyctl/cmd/stolonctl-run
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-settings ./.flyctl/cmd/pg-settings
 
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-settings ./.flyctl/cmd/pg-settings
+
 COPY ./bin/* /fly/bin/
 
-FROM flyio/stolon:2e719de as stolon
+FROM golang:$GO_VERSION as stolon_builder
+WORKDIR /go/src/app
+COPY stolon .
+RUN make build
+
+FROM debian as stolon
+COPY --from=stolon_builder /go/src/app/bin/ /go/src/app/bin/
 
 FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 
