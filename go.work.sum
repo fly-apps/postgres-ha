@@ -1,0 +1,6 @@
+github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
+github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f h1:JOrtw2xFKzlg+cbHpyrpLDmnN1HqhBfnX7WDiW7eG2c=
+github.com/jackc/chunkreader v1.0.0 h1:4s39bBR8ByfqH+DKm8rQA3E1LHZWB9XWcrz8fqaZbe0=
+github.com/jackc/pgproto3 v1.1.0 h1:FYYE4yRw+AgI8wXIinMlNjBbp/UitDJwfj5LqqewP1A=
+github.com/superfly/leadership v0.2.1/go.mod h1:Hc0C7u+T2lwK4PYBHNX0c7SghVDcr3QmNqX0SM52jm8=
+github.com/superfly/libkv v0.3.1/go.mod h1:j/Wpe7MRvC3q5lPNhRkxZa7WmCjC8JFMRi4iWu8ww1c=

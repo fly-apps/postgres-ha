@@ -1,24 +1,21 @@
 ARG PG_VERSION=14.4
 ARG VERSION=custom
 
-FROM golang:1.16 as flyutil
-ARG VERSION
-
-WORKDIR /go/src/github.com/fly-examples/postgres-ha
+FROM golang as builder
+WORKDIR /go/src/app
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/flyadmin ./cmd/flyadmin
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/start ./cmd/start
-
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-restart ./.flyctl/cmd/pg-restart
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-role ./.flyctl/cmd/pg-role
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-failover ./.flyctl/cmd/pg-failover
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/stolonctl-run ./.flyctl/cmd/stolonctl-run
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-settings ./.flyctl/cmd/pg-settings
-
-COPY ./bin/* /fly/bin/
-
-FROM flyio/stolon:2e719de as stolon
+RUN go install -v ./cmd/flyadmin \
+  ./cmd/start \
+  ./.flyctl/cmd/pg-restart \
+  ./.flyctl/cmd/pg-role \
+  ./.flyctl/cmd/pg-failover \
+  ./.flyctl/cmd/stolonctl-run \
+  ./.flyctl/cmd/pg-settings \
+  ./stolon/cmd/keeper \
+  ./stolon/cmd/sentinel \
+  ./stolon/cmd/proxy \
+  ./stolon/cmd/stolonctl
 
 FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 
@@ -36,14 +33,13 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     postgresql-$PG_MAJOR-postgis-$POSTGIS_MAJOR-scripts \    
     && apt autoremove -y
 
-COPY --from=stolon /go/src/app/bin/* /usr/local/bin/
-COPY --from=postgres_exporter /postgres_exporter /usr/local/bin/
-
 ADD /scripts/* /fly/
 ADD /config/* /fly/
 RUN useradd -ms /bin/bash stolon
 RUN mkdir -p /run/haproxy/
-COPY --from=flyutil /fly/bin/* /usr/local/bin/
+
+COPY --from=builder /go/bin/* /usr/local/bin/
+COPY --from=postgres_exporter /postgres_exporter /usr/local/bin/
 
 EXPOSE 5432
 
