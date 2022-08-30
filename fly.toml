@@ -10,8 +10,7 @@ services = []
   PRIMARY_REGION = "sjc"
 
 [deploy]
-  strategy = "rolling"
-  max-per-region = 1
+  strategy = "canary"
 
 [checks]
   [checks.pg]
