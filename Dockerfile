@@ -25,6 +25,7 @@ FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 FROM postgres:${PG_VERSION}
 ARG VERSION 
 ARG POSTGIS_MAJOR=3
+ARG WALG_VERSION=2.0.0
 
 LABEL fly.app_role=postgres_cluster
 LABEL fly.version=${VERSION}
@@ -34,7 +35,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     ca-certificates curl bash dnsutils vim-tiny procps jq haproxy \
     postgresql-$PG_MAJOR-postgis-$POSTGIS_MAJOR \
     postgresql-$PG_MAJOR-postgis-$POSTGIS_MAJOR-scripts \    
-    && apt autoremove -y
+    && apt autoremove -y \
+    && echo 'Installing wal-g' \
+    && curl -L https://github.com/wal-g/wal-g/releases/download/v${WALG_VERSION}/wal-g-pg-ubuntu-18.04-amd64 > /usr/local/bin/wal-g \
+    && chmod +x /usr/local/bin/wal-g
 
 COPY --from=stolon /go/src/app/bin/* /usr/local/bin/
 COPY --from=postgres_exporter /postgres_exporter /usr/local/bin/
