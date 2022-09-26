@@ -2,8 +2,8 @@ package flycheck
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -36,7 +36,6 @@ func runVMChecks(w http.ResponseWriter, r *http.Request) {
 	<-ctx.Done()
 
 	handleCheckResponse(w, suite, false)
-
 }
 
 func runPGChecks(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +56,6 @@ func runPGChecks(w http.ResponseWriter, r *http.Request) {
 	<-ctx.Done()
 
 	handleCheckResponse(w, suite, false)
-
 }
 
 func runRoleCheck(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +77,6 @@ func runRoleCheck(w http.ResponseWriter, r *http.Request) {
 	<-ctx.Done()
 
 	handleCheckResponse(w, suite, true)
-
 }
 
 func handleCheckResponse(w http.ResponseWriter, suite *suite.CheckSuite, raw bool) {
@@ -97,10 +94,10 @@ func handleCheckResponse(w http.ResponseWriter, suite *suite.CheckSuite, raw boo
 		handleError(w, fmt.Errorf(result))
 		return
 	}
-	json.NewEncoder(w).Encode(result)
+	io.WriteString(w, result)
 }
 
 func handleError(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
-	json.NewEncoder(w).Encode(err.Error())
+	io.WriteString(w, err.Error())
 }
