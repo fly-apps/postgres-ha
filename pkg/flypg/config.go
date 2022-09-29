@@ -105,6 +105,9 @@ func InitConfig(filename string) (*Config, error) {
 			"max_parallel_workers":            "8",
 			"max_parallel_workers_per_gather": "2",
 			"wal_compression":                 "on",
+			"archive_mode":                    "on",
+			"archive_command":                 "if [ $ENABLE_WALG ]; then /usr/local/bin/wal-g wal-push \"%p\"; fi",
+			"archive_timeout":                 "60",
 		},
 	}
 
