@@ -1,0 +1,3 @@
+if [[ -r /data/.env ]]; then
+	export $(cat /data/.env | xargs)
+fi

@@ -54,6 +54,7 @@ ADD /scripts/* /fly/
 ADD /config/* /fly/
 RUN useradd -ms /bin/bash stolon
 RUN mkdir -p /run/haproxy/
+RUN ln -sf /fly/dot-bashrc /root/.bashrc
 COPY --from=flyutil /fly/bin/* /usr/local/bin/
 
 EXPOSE 5432
