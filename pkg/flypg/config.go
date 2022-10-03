@@ -20,10 +20,11 @@ const InitModeNew = "new"
 const InitModeExisting = "existing"
 
 type Config struct {
-	InitMode             string            `json:"initMode"`
-	ExistingConfig       map[string]string `json:"existingConfig"`
-	PGParameters         map[string]string `json:"pgParameters"`
-	MaxStandbysPerSender int               `json:"maxStandbysPerSender"`
+	InitMode                  string            `json:"initMode"`
+	ExistingConfig            map[string]string `json:"existingConfig"`
+	PGParameters              map[string]string `json:"pgParameters"`
+	MaxStandbysPerSender      int               `json:"maxStandbysPerSender"`
+	DeadKeeperRemovalInterval string            `json:"deadKeeperRemovalInterval"`
 }
 
 type KeeperState struct {
@@ -90,9 +91,10 @@ func InitConfig(filename string) (*Config, error) {
 	}
 
 	cfg = Config{
-		InitMode:             initMode,
-		ExistingConfig:       existingConfig,
-		MaxStandbysPerSender: 50,
+		InitMode:                  initMode,
+		ExistingConfig:            existingConfig,
+		MaxStandbysPerSender:      50,
+		DeadKeeperRemovalInterval: "1h",
 		PGParameters: map[string]string{
 			"random_page_cost":                "1.1",
 			"effective_io_concurrency":        "200",
