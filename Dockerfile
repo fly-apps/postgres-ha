@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/pg-settings ./.flyctl/cmd/p
 
 COPY ./bin/* /fly/bin/
 
-FROM flyio/stolon:8f81589 as stolon
+FROM flyio/stolon:327008e as stolon
 
 FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 
