@@ -1,0 +1,11 @@
+#!/bin/dash
+# Dash sources this file according to POSIX envvar $ENV declared in Dockerfile
+# https://manpages.debian.org/stretch/dash/dash.1.en.html#Invocation
+
+if [ -f /data/.env ]; then
+  export $(cat /data/.env)
+fi
+
+# Upgrade to Bash shell
+unset ENV
+exec /bin/bash "$@"

@@ -56,7 +56,7 @@ RUN useradd -ms /bin/bash stolon
 RUN mkdir -p /run/haproxy/
 COPY --from=flyutil /fly/bin/* /usr/local/bin/
 
-ENV ENV="/fly/set-stolon-environment.sh"
+ENV ENV="/fly/shell-init"
 
 EXPOSE 5432
 
