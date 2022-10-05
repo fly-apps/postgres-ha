@@ -33,5 +33,5 @@ func main() {
 
 	role := strings.Trim(string(body), "\n")
 	role = strings.Trim(role, "\"")
-	util.WriteOutput("Role retreived successfully", role)
+	util.WriteOutput("Role retrieved successfully", role)
 }
