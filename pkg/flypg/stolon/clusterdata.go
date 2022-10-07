@@ -253,7 +253,7 @@ type KeeperStatus struct {
 
 	ForceFail bool `json:"forceFail,omitempty"`
 
-	CanBeMaster             *bool `json:"canBeMaster,omitempty"`
+	CanBeMaster             bool  `json:"canBeMaster,omitempty"`
 	CanBeSynchronousReplica *bool `json:"canBeSynchronousReplica,omitempty"`
 }
 
