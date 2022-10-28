@@ -1,8 +1,8 @@
 # High Availability Postgres on Fly.io
 
-This repo contains all the code and configuration necessary to run a [highly available Postgres cluster](https://fly.io/docs/reference/postgres/) in a Fly.io organization's private network. This source is packaged into [Docker images](https://hub.docker.com/r/flyio/postgres-ha/tags) which allow you to track and upgrade versions cleanly as new features are added.
+This repo contains all the code and configuration necessary to run a [highly available Postgres cluster](https://fly.io/docs/postgres/) in a Fly.io organization's private network. This source is packaged into [Docker images](https://hub.docker.com/r/flyio/postgres-ha/tags) which allow you to track and upgrade versions cleanly as new features are added.
 
-If you just want to get a standard Postgres standalone or highly-available setup on Fly, [check out the docs](https://fly.io/docs/reference/postgres/).
+If you just want to get a standard Postgres standalone or highly-available setup on Fly, [check out the docs](https://fly.io/docs/postgres/).
 ## Customizing cluster behavior
 
 Fly Postgres clusters are just regular Fly applications. If you need to customize Postgres in any way, you may fork this repo and deploy using normal Fly deployment procedures. You won't be able to use `fly postgres` commands with custom clusters. But it's a great way to experiment and potentially contribute back useful features!
