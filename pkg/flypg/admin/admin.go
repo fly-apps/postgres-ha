@@ -45,6 +45,17 @@ func GrantReplication(ctx context.Context, pg *pgx.Conn, username string) error 
 	return nil
 }
 
+func GrantLogin(ctx context.Context, pg *pgx.Conn, username string) error {
+	sql := fmt.Sprintf("ALTER USER %s WITH LOGIN", username)
+
+	_, err := pg.Exec(ctx, sql)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func ChangePassword(ctx context.Context, pg *pgx.Conn, username, password string) error {
 	sql := fmt.Sprintf("ALTER USER %s WITH LOGIN PASSWORD '%s';", username, password)
 

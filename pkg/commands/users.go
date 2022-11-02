@@ -89,6 +89,14 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	if input.Login {
+		err = admin.GrantLogin(r.Context(), conn, input.Username)
+		if err != nil {
+			render.Err(w, err)
+			return
+		}
+	}
 	res := &Response{
 		Result: true,
 	}
