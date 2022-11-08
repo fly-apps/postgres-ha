@@ -90,9 +90,6 @@ fly image show --app <app-name>
 
 # Update to the latest ( Nomad-based apps )
 fly image update --app <app-name>
-
-# Update to the latest ( Machine-based apps )
-fly postgres update --app <app-name>
 ```
 
 2. Configure Postgres to preload the TimescaleDB library
