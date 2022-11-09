@@ -77,6 +77,43 @@ flyctl proxy 5432 -a <postgres-app-name>
 psql postgres://postgres:<operator_password>@localhost:5432
 ```
 
+## Enabling TimescaleDB
+
+This app includes the [TimescaleDB extension](https://timescale.com/).  To enable TimescaleDB, take the following steps:
+
+
+1. Ensure your Postgres app is running `>= v0.0.28`.
+
+```
+# View your image details
+fly image show --app <app-name>
+
+# Update to the latest ( Nomad-based apps )
+fly image update --app <app-name>
+```
+
+2. Configure Postgres to preload the TimescaleDB library
+
+```
+fly pg config update --shared-preload-libraries timescaledb --app <app-name>
+```
+
+3. Restart Postgres
+
+```
+fly postgres restart --app <app-name>
+```
+
+4. Create the extension
+
+```
+# Connect to your target database
+fly pg connect --app <app-name> --database <db-name>
+
+# Create the extension
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+```
+
 ## Having trouble?
 
 Create an issue or ask a question here: https://community.fly.io/
