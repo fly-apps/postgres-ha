@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os/exec"
 	"time"
@@ -146,4 +147,30 @@ func handleViewSettings(w http.ResponseWriter, r *http.Request) {
 		Result: settings,
 	}
 	render.JSON(w, res, http.StatusOK)
+}
+
+func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	env, err := util.BuildEnv()
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+
+	config, err := io.ReadAll(r.Body)
+
+	defer r.Body.Close()
+
+	if err != nil {
+		err = fmt.Errorf("failed to read request body: %w", err)
+		render.Err(w, err)
+		return
+	}
+
+	if _, err := stolon.Ctl([]string{"update", "--patch", string(config)}, env); err != nil {
+		render.Err(w, err)
+		return
+	}
+	resp := &Response{Result: "update completed successfully"}
+
+	render.JSON(w, resp, http.StatusOK)
 }
