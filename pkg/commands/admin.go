@@ -170,7 +170,7 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		render.Err(w, err)
 		return
 	}
-	resp := &Response{Result: "update completed successfully"}
+	resp := &Response{Result: "Ok"}
 
 	render.JSON(w, resp, http.StatusOK)
 }
