@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/pkg/errors"
@@ -36,6 +37,13 @@ func InitConfig(filename string) (*Config, error) {
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		log.Fatalln("error cleaning filename", err)
+	}
+
+	// Detect if TimescaleDB is installed.
+	preloadShared := []string{}
+	tsEnabled, err := strconv.ParseBool(os.Getenv("TIMESCALE_DB_ENABLED"))
+	if err == nil && tsEnabled {
+		preloadShared = append(preloadShared, "timescaledb")
 	}
 
 	fmt.Println("cluster spec filename", filename)
@@ -111,6 +119,10 @@ func InitConfig(filename string) (*Config, error) {
 			"archive_command":                 "if [ $ENABLE_WALG ]; then /usr/local/bin/wal-g wal-push \"%p\"; fi",
 			"archive_timeout":                 "60",
 		},
+	}
+
+	if len(preloadShared) > 0 {
+		cfg.PGParameters["shared-preload-libraries"] = strings.Join(preloadShared, ",")
 	}
 
 	if initMode == InitModeNew {
