@@ -41,7 +41,7 @@ func InitConfig(filename string) (*Config, error) {
 
 	// Detect if TimescaleDB is installed.
 	preloadShared := []string{}
-	tsEnabled, err := strconv.ParseBool(os.Getenv("TIMESCALE_DB_ENABLED"))
+	tsEnabled, err := strconv.ParseBool(os.Getenv("TIMESCALEDB_ENABLED"))
 	if err == nil && tsEnabled {
 		preloadShared = append(preloadShared, "timescaledb")
 	}
