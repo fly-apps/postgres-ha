@@ -60,6 +60,7 @@ RUN mkdir -p /run/haproxy/
 COPY --from=flyutil /fly/bin/* /usr/local/bin/
 
 ENV ENV="/fly/shell-init"
+ENV TIMESCALE_DB_ENABLED=true
 
 EXPOSE 5432
 

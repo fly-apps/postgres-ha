@@ -122,7 +122,7 @@ func InitConfig(filename string) (*Config, error) {
 	}
 
 	if len(preloadShared) > 0 {
-		cfg.PGParameters["shared-preload-libraries"] = strings.Join(preloadShared, ",")
+		cfg.PGParameters["shared_preload_libraries"] = strings.Join(preloadShared, ",")
 	}
 
 	if initMode == InitModeNew {
