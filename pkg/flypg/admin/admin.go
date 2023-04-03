@@ -252,6 +252,30 @@ func ResolveRole(ctx context.Context, pg *pgx.Conn) (string, error) {
 	return "leader", nil
 }
 
+type ReplicationSlot struct {
+	Active   bool
+	SlotName string
+}
+
+func ResolveReplicationSlots(ctx context.Context, pg *pgx.Conn) ([]*ReplicationSlot, error) {
+	sql := "select active, slot_name from pg_replication_slots;"
+
+	rows, err := pg.Query(ctx, sql)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var slots []*ReplicationSlot
+	for rows.Next() {
+		var s ReplicationSlot
+		if err := rows.Scan(&s.Active, &s.SlotName); err != nil {
+			return nil, err
+		}
+		slots = append(slots, &s)
+	}
+	return slots, nil
+}
+
 func ResolveSettings(ctx context.Context, pg *pgx.Conn, list []string) (*flypg.Settings, error) {
 	node, err := flypg.NewNode()
 	if err != nil {

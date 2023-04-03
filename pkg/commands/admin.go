@@ -174,3 +174,22 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	render.JSON(w, resp, http.StatusOK)
 }
+
+func handleReplicationSlots(w http.ResponseWriter, r *http.Request) {
+	conn, close, err := localConnection(r.Context())
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+	defer close()
+
+	slots, err := admin.ResolveReplicationSlots(r.Context(), conn)
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+
+	resp := &Response{Result: slots}
+
+	render.JSON(w, resp, http.StatusOK)
+}
