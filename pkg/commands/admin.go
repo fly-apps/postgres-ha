@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fly-examples/postgres-ha/pkg/flypg"
 	"io"
 	"net/http"
 	"os/exec"
@@ -190,6 +191,17 @@ func handleReplicationSlots(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := &Response{Result: slots}
+
+	render.JSON(w, resp, http.StatusOK)
+}
+
+func handleStolonUid(w http.ResponseWriter, r *http.Request) {
+	node, err := flypg.NewNode()
+	if err != nil {
+		render.Err(w, err)
+	}
+
+	resp := &Response{Result: node.KeeperUID}
 
 	render.JSON(w, resp, http.StatusOK)
 }

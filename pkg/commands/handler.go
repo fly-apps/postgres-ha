@@ -33,6 +33,7 @@ func Handler() http.Handler {
 		r.Get("/restart", handleRestart)
 		r.Get("/settings/view", handleViewSettings)
 		r.Get("/replicationslots", handleReplicationSlots)
+		r.Get("/uid", handleStolonUid)
 		r.Post("/settings/update", handleUpdateSettings)
 	})
 
