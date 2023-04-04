@@ -32,7 +32,7 @@ func Handler() http.Handler {
 		r.Get("/failover/trigger", handleFailoverTrigger)
 		r.Get("/restart", handleRestart)
 		r.Get("/settings/view", handleViewSettings)
-		r.Get("/replicationslots", handleReplicationSlots)
+		r.Get("/replicationstats", handleReplicationStats)
 		r.Get("/dbuid", handleStolonDBUid)
 		r.Post("/settings/update", handleUpdateSettings)
 	})

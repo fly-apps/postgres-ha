@@ -252,28 +252,28 @@ func ResolveRole(ctx context.Context, pg *pgx.Conn) (string, error) {
 	return "leader", nil
 }
 
-type ReplicationSlot struct {
-	Active   bool
-	SlotName string
+type ReplicationStat struct {
+	Name string
+	Diff int
 }
 
-func ResolveReplicationSlots(ctx context.Context, pg *pgx.Conn) ([]*ReplicationSlot, error) {
-	sql := "select active, slot_name from pg_replication_slots;"
+func ResolveReplicationLag(ctx context.Context, pg *pgx.Conn) ([]*ReplicationStat, error) {
+	sql := "select application_name, pg_current_wal_lsn() - flush_lsn as diff from pg_stat_replication;"
 
 	rows, err := pg.Query(ctx, sql)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var slots []*ReplicationSlot
+	var stats []*ReplicationStat
 	for rows.Next() {
-		var s ReplicationSlot
-		if err := rows.Scan(&s.Active, &s.SlotName); err != nil {
+		var s ReplicationStat
+		if err := rows.Scan(&s.Name, &s.Diff); err != nil {
 			return nil, err
 		}
-		slots = append(slots, &s)
+		stats = append(stats, &s)
 	}
-	return slots, nil
+	return stats, nil
 }
 
 func ResolveSettings(ctx context.Context, pg *pgx.Conn, list []string) (*flypg.Settings, error) {

@@ -177,7 +177,7 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, resp, http.StatusOK)
 }
 
-func handleReplicationSlots(w http.ResponseWriter, r *http.Request) {
+func handleReplicationStats(w http.ResponseWriter, r *http.Request) {
 	conn, close, err := localConnection(r.Context())
 	if err != nil {
 		render.Err(w, err)
@@ -185,13 +185,13 @@ func handleReplicationSlots(w http.ResponseWriter, r *http.Request) {
 	}
 	defer close()
 
-	slots, err := admin.ResolveReplicationSlots(r.Context(), conn)
+	stats, err := admin.ResolveReplicationLag(r.Context(), conn)
 	if err != nil {
 		render.Err(w, err)
 		return
 	}
 
-	resp := &Response{Result: slots}
+	resp := &Response{Result: stats}
 
 	render.JSON(w, resp, http.StatusOK)
 }
