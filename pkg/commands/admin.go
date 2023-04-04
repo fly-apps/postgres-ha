@@ -222,3 +222,39 @@ func handleStolonDBUid(w http.ResponseWriter, r *http.Request) {
 
 	render.Err(w, errors.New("can't find db"))
 }
+
+func handleEnableReadonly(w http.ResponseWriter, r *http.Request) {
+	conn, close, err := localConnection(r.Context())
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+	defer close()
+
+	err = admin.SetReadonly(r.Context(), conn, true)
+	if err != nil {
+		render.Err(w, err)
+	}
+
+	resp := &Response{Result: true}
+
+	render.JSON(w, resp, http.StatusOK)
+}
+
+func handleDisableReadonly(w http.ResponseWriter, r *http.Request) {
+	conn, close, err := localConnection(r.Context())
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+	defer close()
+
+	err = admin.SetReadonly(r.Context(), conn, false)
+	if err != nil {
+		render.Err(w, err)
+	}
+
+	resp := &Response{Result: true}
+
+	render.JSON(w, resp, http.StatusOK)
+}
