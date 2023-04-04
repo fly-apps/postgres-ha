@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
+	"github.com/pkg/errors"
 	"io"
 	"net/http"
 	"os/exec"
@@ -195,13 +196,29 @@ func handleReplicationSlots(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, resp, http.StatusOK)
 }
 
-func handleStolonUid(w http.ResponseWriter, r *http.Request) {
+func handleStolonDBUid(w http.ResponseWriter, r *http.Request) {
+	env, err := util.BuildEnv()
+	if err != nil {
+		render.Err(w, err)
+	}
+
+	data, err := stolon.FetchClusterData(env)
+	if err != nil {
+		render.Err(w, err)
+	}
+
 	node, err := flypg.NewNode()
 	if err != nil {
 		render.Err(w, err)
 	}
 
-	resp := &Response{Result: node.KeeperUID}
+	for _, db := range data.DBs {
+		if db.Spec.KeeperUID == node.KeeperUID {
+			resp := &Response{Result: db.UID}
+			render.JSON(w, resp, http.StatusOK)
+			return
+		}
+	}
 
-	render.JSON(w, resp, http.StatusOK)
+	render.Err(w, errors.New("can't find db"))
 }
