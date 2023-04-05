@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"strings"
 
@@ -250,6 +251,59 @@ func ResolveRole(ctx context.Context, pg *pgx.Conn) (string, error) {
 		return "replica", nil
 	}
 	return "leader", nil
+}
+
+type ReplicationStat struct {
+	Name string
+	Diff int
+}
+
+func ResolveReplicationLag(ctx context.Context, pg *pgx.Conn) ([]*ReplicationStat, error) {
+	sql := "select application_name, pg_current_wal_lsn() - flush_lsn as diff from pg_stat_replication;"
+
+	rows, err := pg.Query(ctx, sql)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var stats []*ReplicationStat
+	for rows.Next() {
+		var s ReplicationStat
+		if err := rows.Scan(&s.Name, &s.Diff); err != nil {
+			return nil, err
+		}
+		stats = append(stats, &s)
+	}
+	return stats, nil
+}
+
+func SetReadonly(ctx context.Context, pg *pgx.Conn, enable bool) error {
+	role, err := ResolveRole(ctx, pg)
+	if err != nil {
+		return err
+	}
+	if role != "leader" {
+		return errors.New("can't set non primary to read-only")
+	}
+
+	databases, err := ListDatabases(ctx, pg)
+	if err != nil {
+		return err
+	}
+
+	for _, db := range databases {
+		// exclude administrative dbs
+		if db.Name == "postgres" {
+			continue
+		}
+
+		sql := fmt.Sprintf("ALTER DATABASE %s SET default_transaction_read_only=%v;", db.Name, enable)
+		if _, err = pg.Exec(ctx, sql); err != nil {
+			return fmt.Errorf("failed to alter readonly state on db %s: %s", db.Name, err)
+		}
+	}
+
+	return nil
 }
 
 func ResolveSettings(ctx context.Context, pg *pgx.Conn, list []string) (*flypg.Settings, error) {

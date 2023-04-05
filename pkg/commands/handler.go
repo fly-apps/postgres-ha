@@ -32,6 +32,10 @@ func Handler() http.Handler {
 		r.Get("/failover/trigger", handleFailoverTrigger)
 		r.Get("/restart", handleRestart)
 		r.Get("/settings/view", handleViewSettings)
+		r.Get("/replicationstats", handleReplicationStats)
+		r.Post("/readonly/enable", handleEnableReadonly)
+		r.Post("/readonly/disable", handleDisableReadonly)
+		r.Get("/dbuid", handleStolonDBUid)
 		r.Post("/settings/update", handleUpdateSettings)
 	})
 

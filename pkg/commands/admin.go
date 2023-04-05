@@ -3,6 +3,8 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fly-examples/postgres-ha/pkg/flypg"
+	"github.com/pkg/errors"
 	"io"
 	"net/http"
 	"os/exec"
@@ -171,6 +173,118 @@ func handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := &Response{Result: "Ok"}
+
+	render.JSON(w, resp, http.StatusOK)
+}
+
+func handleReplicationStats(w http.ResponseWriter, r *http.Request) {
+	conn, close, err := localConnection(r.Context())
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+	defer close()
+
+	stats, err := admin.ResolveReplicationLag(r.Context(), conn)
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+
+	resp := &Response{Result: stats}
+
+	render.JSON(w, resp, http.StatusOK)
+}
+
+func handleStolonDBUid(w http.ResponseWriter, r *http.Request) {
+	env, err := util.BuildEnv()
+	if err != nil {
+		render.Err(w, err)
+	}
+
+	data, err := stolon.FetchClusterData(env)
+	if err != nil {
+		render.Err(w, err)
+	}
+
+	node, err := flypg.NewNode()
+	if err != nil {
+		render.Err(w, err)
+	}
+
+	for _, db := range data.DBs {
+		if db.Spec.KeeperUID == node.KeeperUID {
+			resp := &Response{Result: db.UID}
+			render.JSON(w, resp, http.StatusOK)
+			return
+		}
+	}
+
+	render.Err(w, errors.New("can't find db"))
+}
+
+func handleEnableReadonly(w http.ResponseWriter, r *http.Request) {
+	conn, close, err := localConnection(r.Context())
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+	defer close()
+
+	err = admin.SetReadonly(r.Context(), conn, true)
+	if err != nil {
+		render.Err(w, err)
+	}
+
+	args := []string{"root", "pkill", "haproxy"}
+
+	cmd := exec.Command("gosu", args...)
+
+	if err := cmd.Run(); err != nil {
+		render.Err(w, err)
+		return
+	}
+
+	if cmd.ProcessState.ExitCode() != 0 {
+		err := fmt.Errorf(cmd.ProcessState.String())
+		render.Err(w, err)
+		return
+	}
+
+	resp := &Response{Result: true}
+
+	render.JSON(w, resp, http.StatusOK)
+}
+
+func handleDisableReadonly(w http.ResponseWriter, r *http.Request) {
+	conn, close, err := localConnection(r.Context())
+	if err != nil {
+		render.Err(w, err)
+		return
+	}
+	defer close()
+
+	err = admin.SetReadonly(r.Context(), conn, false)
+	if err != nil {
+		render.Err(w, err)
+	}
+
+	args := []string{"root", "pkill", "haproxy"}
+
+	cmd := exec.Command("gosu", args...)
+
+	if err := cmd.Run(); err != nil {
+		render.Err(w, err)
+		return
+	}
+
+	if cmd.ProcessState.ExitCode() != 0 {
+		err := fmt.Errorf(cmd.ProcessState.String())
+		render.Err(w, err)
+		return
+	}
+
+	resp := &Response{Result: true}
 
 	render.JSON(w, resp, http.StatusOK)
 }
