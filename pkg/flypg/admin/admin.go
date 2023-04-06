@@ -255,7 +255,7 @@ func ResolveRole(ctx context.Context, pg *pgx.Conn) (string, error) {
 
 type ReplicationStat struct {
 	Name string
-	Diff int
+	Diff *int
 }
 
 func ResolveReplicationLag(ctx context.Context, pg *pgx.Conn) ([]*ReplicationStat, error) {
