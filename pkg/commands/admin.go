@@ -289,7 +289,7 @@ func handleDisableReadonly(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, resp, http.StatusOK)
 }
 
-func handleBounceHaproxy(w http.ResponseWriter, r *http.Request) {
+func handleRestartHaproxy(w http.ResponseWriter, r *http.Request) {
 	args := []string{"root", "pkill", "haproxy"}
 
 	cmd := exec.Command("gosu", args...)
