@@ -36,6 +36,7 @@ func Handler() http.Handler {
 		r.Post("/readonly/enable", handleEnableReadonly)
 		r.Post("/readonly/disable", handleDisableReadonly)
 		r.Get("/dbuid", handleStolonDBUid)
+		r.Post("/haproxy/restart", handleRestartHaproxy)
 		r.Post("/settings/update", handleUpdateSettings)
 	})
 

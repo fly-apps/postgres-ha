@@ -288,3 +288,24 @@ func handleDisableReadonly(w http.ResponseWriter, r *http.Request) {
 
 	render.JSON(w, resp, http.StatusOK)
 }
+
+func handleRestartHaproxy(w http.ResponseWriter, r *http.Request) {
+	args := []string{"root", "pkill", "haproxy"}
+
+	cmd := exec.Command("gosu", args...)
+
+	if err := cmd.Run(); err != nil {
+		render.Err(w, err)
+		return
+	}
+
+	if cmd.ProcessState.ExitCode() != 0 {
+		err := fmt.Errorf(cmd.ProcessState.String())
+		render.Err(w, err)
+		return
+	}
+
+	resp := &Response{Result: true}
+
+	render.JSON(w, resp, http.StatusOK)
+}
