@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	chk "github.com/fly-examples/postgres-ha/pkg/check"
 	"github.com/fly-examples/postgres-ha/pkg/flypg"
 	"github.com/fly-examples/postgres-ha/pkg/privnet"
 	"github.com/pkg/errors"
+	chk "github.com/superfly/fly-checks/check"
 
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
