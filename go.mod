@@ -13,6 +13,7 @@ require (
 	github.com/pkg/term v1.1.0
 	github.com/shirou/gopsutil/v3 v3.21.3
 	github.com/stretchr/testify v1.6.1
+	github.com/superfly/fly-checks v0.0.0-20230510154016-d189351293f2
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )

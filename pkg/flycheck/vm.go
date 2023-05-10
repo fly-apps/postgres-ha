@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fly-examples/postgres-ha/pkg/check"
+	"github.com/superfly/fly-checks/check"
 )
 
 // CheckVM for system / disk checks

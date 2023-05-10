@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	suite "github.com/fly-examples/postgres-ha/pkg/check"
+	suite "github.com/superfly/fly-checks/check"
 )
 
 const Port = 5500
