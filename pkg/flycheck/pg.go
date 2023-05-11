@@ -219,5 +219,8 @@ func resolveServerAddr(ctx context.Context, conn *pgx.Conn) (string, error) {
 			return "", err
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
 	return addr.IP.String(), nil
 }
