@@ -61,28 +61,28 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           build-args: |
-            PG_VERSION=14.6
+            PG_VERSION=14.8
             VERSION=${{ steps.get-latest-tag.outputs.tag }}
           context: .
           file: ./Dockerfile
           push: true
           tags: |
             flyio/postgres:14
-            flyio/postgres:14.6
+            flyio/postgres:14.8
       -
         name: Build and push TimescaleDB 14
         id: docker_build_ts_14
         uses: docker/build-push-action@v2
         with:
           build-args: |
-            PG_VERSION=14.6
+            PG_VERSION=14.8
             VERSION=${{ steps.get-latest-tag.outputs.tag }}
           context: .
           file: ./Dockerfile-timescaledb
           push: true
           tags: |
             flyio/postgres-timescaledb:14
-            flyio/postgres-timescaledb:14.6
+            flyio/postgres-timescaledb:14.8
       -
         name: Postgres 12 Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
