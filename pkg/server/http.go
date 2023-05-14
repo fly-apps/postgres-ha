@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/fly-examples/postgres-ha/pkg/commands"
-	"github.com/fly-examples/postgres-ha/pkg/flycheck"
+	"github.com/fly-apps/postgres-ha/pkg/commands"
+	"github.com/fly-apps/postgres-ha/pkg/flycheck"
 	"github.com/go-chi/chi/v5"
 )
 

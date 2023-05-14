@@ -3,17 +3,18 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/fly-examples/postgres-ha/pkg/flypg"
-	"github.com/pkg/errors"
 	"io"
 	"net/http"
 	"os/exec"
 	"time"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
-	"github.com/fly-examples/postgres-ha/pkg/flypg/stolon"
-	"github.com/fly-examples/postgres-ha/pkg/render"
-	"github.com/fly-examples/postgres-ha/pkg/util"
+	"github.com/fly-apps/postgres-ha/pkg/flypg"
+	"github.com/pkg/errors"
+
+	"github.com/fly-apps/postgres-ha/pkg/flypg/admin"
+	"github.com/fly-apps/postgres-ha/pkg/flypg/stolon"
+	"github.com/fly-apps/postgres-ha/pkg/render"
+	"github.com/fly-apps/postgres-ha/pkg/util"
 )
 
 func handleFailoverTrigger(w http.ResponseWriter, r *http.Request) {

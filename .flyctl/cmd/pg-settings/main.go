@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg"
-	"github.com/fly-examples/postgres-ha/pkg/util"
+	"github.com/fly-apps/postgres-ha/pkg/flypg"
+	"github.com/fly-apps/postgres-ha/pkg/util"
 )
 
 func main() {
@@ -38,9 +38,9 @@ func main() {
 
 	sValues := "'" + strings.Join(sList, "', '") + "'"
 
-	sql := fmt.Sprintf(`select 
-	name, setting, vartype, min_val, max_val, enumvals, context, unit, short_desc, pending_restart 
-	FROM pg_settings WHERE name IN (%s);  	
+	sql := fmt.Sprintf(`select
+	name, setting, vartype, min_val, max_val, enumvals, context, unit, short_desc, pending_restart
+	FROM pg_settings WHERE name IN (%s);
 `, sValues)
 
 	rows, err := conn.Query(context.Background(), sql)

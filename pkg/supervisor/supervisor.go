@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fly-examples/postgres-ha/pkg/server"
+	"github.com/fly-apps/postgres-ha/pkg/server"
 	"github.com/google/shlex"
 	"golang.org/x/sync/errgroup"
 )

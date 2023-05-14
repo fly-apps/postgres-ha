@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg/stolon"
-	"github.com/fly-examples/postgres-ha/pkg/util"
+	"github.com/fly-apps/postgres-ha/pkg/flypg/stolon"
+	"github.com/fly-apps/postgres-ha/pkg/util"
 )
 
 func main() {

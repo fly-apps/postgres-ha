@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fly-examples/postgres-ha/pkg/privnet"
+	"github.com/fly-apps/postgres-ha/pkg/privnet"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 )

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg"
-	"github.com/fly-examples/postgres-ha/pkg/privnet"
+	"github.com/fly-apps/postgres-ha/pkg/flypg"
+	"github.com/fly-apps/postgres-ha/pkg/privnet"
 	"github.com/pkg/errors"
 	chk "github.com/superfly/fly-checks/check"
 

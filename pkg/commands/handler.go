@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg"
-	"github.com/fly-examples/postgres-ha/pkg/flypg/stolon"
+	"github.com/fly-apps/postgres-ha/pkg/flypg"
+	"github.com/fly-apps/postgres-ha/pkg/flypg/stolon"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v4"
 )
