@@ -1,4 +1,4 @@
-ARG PG_VERSION=14.4
+ARG PG_VERSION=14.8
 ARG VERSION=custom
 
 FROM golang:1.16 as flyutil
@@ -23,7 +23,7 @@ FROM flyio/stolon:327008e as stolon
 FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 
 FROM postgres:${PG_VERSION}
-ARG VERSION 
+ARG VERSION
 ARG POSTGIS_MAJOR=3
 ARG WALG_VERSION=2.0.0
 
