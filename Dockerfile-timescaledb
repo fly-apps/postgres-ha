@@ -4,7 +4,7 @@ ARG VERSION=custom
 FROM golang:1.16 as flyutil
 ARG VERSION
 
-WORKDIR /go/src/github.com/fly-examples/postgres-ha
+WORKDIR /go/src/github.com/fly-apps/postgres-ha
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /fly/bin/flyadmin ./cmd/flyadmin
@@ -23,7 +23,7 @@ FROM flyio/stolon:327008e as stolon
 FROM wrouesnel/postgres_exporter:latest AS postgres_exporter
 
 FROM postgres:${PG_VERSION}
-ARG VERSION 
+ARG VERSION
 ARG POSTGIS_MAJOR=3
 ARG WALG_VERSION=2.0.0
 

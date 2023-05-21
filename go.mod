@@ -1,4 +1,4 @@
-module github.com/fly-examples/postgres-ha
+module github.com/fly-apps/postgres-ha
 
 go 1.16
 

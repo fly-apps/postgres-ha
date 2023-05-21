@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
-	"github.com/fly-examples/postgres-ha/pkg/render"
+	"github.com/fly-apps/postgres-ha/pkg/flypg/admin"
+	"github.com/fly-apps/postgres-ha/pkg/render"
 	"github.com/go-chi/chi/v5"
 )
 

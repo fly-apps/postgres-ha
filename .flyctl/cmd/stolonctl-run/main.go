@@ -6,8 +6,8 @@ import (
 
 	"encoding/base64"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg/stolon"
-	"github.com/fly-examples/postgres-ha/pkg/util"
+	"github.com/fly-apps/postgres-ha/pkg/flypg/stolon"
+	"github.com/fly-apps/postgres-ha/pkg/util"
 	"github.com/google/shlex"
 )
 

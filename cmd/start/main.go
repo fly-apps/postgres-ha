@@ -14,10 +14,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg"
-	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
-	"github.com/fly-examples/postgres-ha/pkg/flyunlock"
-	"github.com/fly-examples/postgres-ha/pkg/supervisor"
+	"github.com/fly-apps/postgres-ha/pkg/flypg"
+	"github.com/fly-apps/postgres-ha/pkg/flypg/admin"
+	"github.com/fly-apps/postgres-ha/pkg/flyunlock"
+	"github.com/fly-apps/postgres-ha/pkg/supervisor"
 	"github.com/jackc/pgx/v4"
 )
 

@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg/stolon"
+	"github.com/fly-apps/postgres-ha/pkg/flypg/stolon"
 	"github.com/pkg/errors"
 )
 

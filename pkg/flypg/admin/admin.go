@@ -5,11 +5,12 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"github.com/pkg/errors"
 	"os"
 	"strings"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg"
+	"github.com/pkg/errors"
+
+	"github.com/fly-apps/postgres-ha/pkg/flypg"
 	"github.com/jackc/pgx/v4"
 )
 
@@ -60,8 +61,8 @@ func ChangePassword(ctx context.Context, pg *pgx.Conn, username, password string
 func ListDatabases(ctx context.Context, pg *pgx.Conn) ([]DbInfo, error) {
 	sql := `
 		SELECT d.datname,
-					(SELECT array_agg(u.usename::text order by u.usename) 
-						from pg_user u 
+					(SELECT array_agg(u.usename::text order by u.usename)
+						from pg_user u
 						where has_database_privilege(u.usename, d.datname, 'CONNECT')) as allowed_users
 		from pg_database d where d.datistemplate = false
 		order by d.datname;
@@ -119,10 +120,10 @@ func ListUsers(ctx context.Context, pg *pgx.Conn) ([]UserInfo, error) {
 			from pg_database d
 				WHERE datistemplate = false
 				AND has_database_privilege(u.usename, d.datname, 'CONNECT')
-	) as 
+	) as
 		allowed_databases
-	from 
-		pg_user u join pg_authid a on u.usesysid = a.oid 
+	from
+		pg_user u join pg_authid a on u.usesysid = a.oid
 	order by u.usename
 	`
 
@@ -147,20 +148,20 @@ func ListUsers(ctx context.Context, pg *pgx.Conn) ([]UserInfo, error) {
 
 func FindUser(ctx context.Context, pg *pgx.Conn, username string) (*UserInfo, error) {
 	sql := `
-	select 
+	select
 		u.usename,
         usesuper as superuser,
         userepl as repluser,
     	a.rolpassword as passwordhash,
     (
-        SELECT 
+        SELECT
 			array_agg(d.datname::text order by d.datname)
         	from pg_database d
         WHERE datistemplate = false AND has_database_privilege(u.usename, d.datname, 'CONNECT')
-    ) AS 
+    ) AS
 		allowed_databases
-    FROM 
-		pg_user u join pg_authid a on u.usesysid = a.oid 
+    FROM
+		pg_user u join pg_authid a on u.usesysid = a.oid
 	WHERE u.usename='%s';`
 
 	sql = fmt.Sprintf(sql, username)
@@ -211,9 +212,9 @@ func DeleteDatabase(ctx context.Context, pg *pgx.Conn, name string) error {
 
 func FindDatabase(ctx context.Context, pg *pgx.Conn, name string) (*DbInfo, error) {
 	sql := `
-	SELECT 
-		datname, 
-		(SELECT array_agg(u.usename::text order by u.usename) FROM pg_user u WHERE has_database_privilege(u.usename, d.datname, 'CONNECT')) as allowed_users 
+	SELECT
+		datname,
+		(SELECT array_agg(u.usename::text order by u.usename) FROM pg_user u WHERE has_database_privilege(u.usename, d.datname, 'CONNECT')) as allowed_users
 	FROM pg_database d WHERE d.datname='%s';
 	`
 
@@ -315,16 +316,16 @@ func ResolveSettings(ctx context.Context, pg *pgx.Conn, list []string) (*flypg.S
 
 	sql := fmt.Sprintf(`
 	SELECT
-		name, 
-		setting, 
-		vartype, 
-		min_val, 
-		max_val, 
-		enumvals, 
-		context, 
-		unit, 
-		short_desc, 
-		pending_restart 
+		name,
+		setting,
+		vartype,
+		min_val,
+		max_val,
+		enumvals,
+		context,
+		unit,
+		short_desc,
+		pending_restart
 	FROM pg_settings WHERE name IN (%s);`, sValues)
 
 	rows, err := pg.Query(ctx, sql)

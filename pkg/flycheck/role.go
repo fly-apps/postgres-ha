@@ -3,10 +3,11 @@ package flycheck
 import (
 	"context"
 	"fmt"
+
 	chk "github.com/superfly/fly-checks/check"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg"
-	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
+	"github.com/fly-apps/postgres-ha/pkg/flypg"
+	"github.com/fly-apps/postgres-ha/pkg/flypg/admin"
 	"github.com/pkg/errors"
 )
 

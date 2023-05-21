@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg/admin"
-	"github.com/fly-examples/postgres-ha/pkg/privnet"
-	"github.com/fly-examples/postgres-ha/pkg/supervisor"
+	"github.com/fly-apps/postgres-ha/pkg/flypg/admin"
+	"github.com/fly-apps/postgres-ha/pkg/privnet"
+	"github.com/fly-apps/postgres-ha/pkg/supervisor"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 )

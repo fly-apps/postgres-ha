@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/fly-examples/postgres-ha/pkg/flypg"
+	"github.com/fly-apps/postgres-ha/pkg/flypg"
 )
 
 func BuildEnv() ([]string, error) {
