@@ -35,11 +35,19 @@ func handleFailoverTrigger(w http.ResponseWriter, r *http.Request) {
 	currentMasterUID := masterKeeperUID(data)
 
 	// Discover keepers that are eligible for promotion.
+	retries := 5
+
 	eligibleCount := 0
-	for _, keeper := range data.Keepers {
-		if keeper.Status.Healthy && keeper.Status.CanBeMaster && keeper.UID != currentMasterUID {
-			fmt.Printf("Keeper %s is eligible!  Master is %s\n", keeper.UID, currentMasterUID)
-			eligibleCount++
+	for retries > 0 {
+		for _, keeper := range data.Keepers {
+			if keeper.Status.Healthy && keeper.Status.CanBeMaster && keeper.UID != currentMasterUID {
+				fmt.Printf("Keeper %s is eligible!  Master is %s\n", keeper.UID, currentMasterUID)
+				eligibleCount++
+			}
+		}
+		if eligibleCount == 0 {
+			time.Sleep(10 * time.Second)
+			retries = retries - 1
 		}
 	}
 
